@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "@fontsource-variable/syne";
+import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";

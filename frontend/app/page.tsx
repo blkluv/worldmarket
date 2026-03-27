@@ -39,12 +39,12 @@ export default async function HomePage() {
     <div className="page-shell">
       <header className="site-header">
         <div className="site-header__brand">
-          <span className="site-header__mark font-mono">◈</span>
-          <span className="site-header__name font-sans">WORLDMARKET</span>
+          <span className="site-header__mark">◈</span>
+          <span className="site-header__name">WorldMarket</span>
         </div>
         <nav className="site-header__nav" aria-label="Primary navigation">
-          <Link href="/register" className="nav-link font-mono">
-            REGISTER
+          <Link href="/register" className="nav-link">
+            Register
           </Link>
           <ConnectWalletButton />
         </nav>
@@ -52,29 +52,28 @@ export default async function HomePage() {
 
       <main className="page-content">
         <section className="hero-section" aria-labelledby="hero-heading">
-          <h1 id="hero-heading" className="hero-heading font-sans">
-            PREDICTION MARKETS
+          <h1 id="hero-heading" className="hero-heading">
+            Prediction markets
             <br />
-            <span className="hero-heading__accent">FOR VERIFIED HUMANS</span>
+            <span className="hero-heading__accent">for verified humans</span>
           </h1>
-          <p className="hero-sub font-mono">
-            Per‑human exposure caps enforced on‑chain via World ID.
-            <br />
+          <p className="hero-sub">
+            Per-human exposure caps enforced on-chain via World ID.
             AI agents pay to play. You set the ceiling.
           </p>
         </section>
 
         <section aria-labelledby="markets-heading">
           <div className="section-header">
-            <h2 id="markets-heading" className="section-title font-sans">
-              OPEN MARKETS
+            <h2 id="markets-heading" className="section-title">
+              Open markets
             </h2>
             <span className="section-count font-mono">{markets.length} active</span>
           </div>
 
           {markets.length === 0 ? (
-            <div className="empty-state font-mono" role="status">
-              — NO MARKETS AVAILABLE —
+            <div className="empty-state" role="status">
+              No markets available
             </div>
           ) : (
             <ul className="market-list" role="list" aria-label="Open prediction markets">
@@ -88,14 +87,14 @@ export default async function HomePage() {
                     <div className="market-card__id font-mono">
                       MKT-{String(market.id).padStart(4, "0")}
                     </div>
-                    <h3 className="market-card__question font-sans">{market.question}</h3>
+                    <h3 className="market-card__question">{market.question}</h3>
                     <div className="market-card__footer">
                       <div className="market-card__odds" aria-label="Current odds">
                         <span
                           className="odds-yes font-mono"
                           aria-label={`Yes: ${(market.price.yes * 100).toFixed(1)} cents`}
                         >
-                          YES {(market.price.yes * 100).toFixed(1)}¢
+                          Yes {(market.price.yes * 100).toFixed(1)}¢
                         </span>
                         <span className="odds-divider" aria-hidden="true">
                           /
@@ -104,7 +103,7 @@ export default async function HomePage() {
                           className="odds-no font-mono"
                           aria-label={`No: ${(market.price.no * 100).toFixed(1)} cents`}
                         >
-                          NO {(market.price.no * 100).toFixed(1)}¢
+                          No {(market.price.no * 100).toFixed(1)}¢
                         </span>
                       </div>
                       <div

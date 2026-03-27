@@ -13,7 +13,7 @@ export function ConnectWalletButton() {
         onClick={() => disconnect()}
         aria-label={`Disconnect wallet ${address}`}
       >
-        {address.slice(0, 6)}\u2026{address.slice(-4)} \u2715
+        {address.slice(0, 6)}…{address.slice(-4)} ✕
       </button>
     );
   }
@@ -25,17 +25,17 @@ export function ConnectWalletButton() {
     <div className="wallet-connect-group" role="group" aria-label="Connect wallet">
       {injectedConnector && (
         <button
-          className="wallet-btn font-mono"
+          className="wallet-btn"
           onClick={() => connect({ connector: injectedConnector })}
           disabled={isPending}
           aria-label="Connect injected wallet (MetaMask)"
         >
-          {isPending ? "CONNECTING\u2026" : "CONNECT WALLET"}
+          {isPending ? "Connecting…" : "Connect wallet"}
         </button>
       )}
       {wcConnector && (
         <button
-          className="wallet-btn wallet-btn--secondary font-mono"
+          className="wallet-btn wallet-btn--secondary"
           onClick={() => connect({ connector: wcConnector })}
           disabled={isPending}
           aria-label="Connect via WalletConnect"
@@ -44,12 +44,12 @@ export function ConnectWalletButton() {
         </button>
       )}
       {!injectedConnector && !wcConnector && (
-        <button className="wallet-btn font-mono" disabled>
-          NO WALLET DETECTED
+        <button className="wallet-btn" disabled>
+          No wallet detected
         </button>
       )}
       {error && (
-        <p className="wallet-error font-mono" role="alert">
+        <p className="wallet-error" role="alert">
           {error.message}
         </p>
       )}

@@ -53,22 +53,22 @@ export default async function MarketPage({
       <div className="page-shell">
         <header className="site-header">
           <div className="site-header__brand">
-            <span className="site-header__mark font-mono">◈</span>
-            <span className="site-header__name font-sans">WORLDMARKET</span>
+            <span className="site-header__mark">◈</span>
+            <span className="site-header__name">WorldMarket</span>
           </div>
           <nav className="site-header__nav">
-            <Link href="/" className="nav-link font-mono">
-              ← MARKETS
+            <Link href="/" className="nav-link">
+              ← Markets
             </Link>
             <ConnectWalletButton />
           </nav>
         </header>
         <main className="market-detail">
-          <Link href="/" className="market-back-link font-mono">
-            ← ALL MARKETS
+          <Link href="/" className="market-back-link">
+            ← All markets
           </Link>
-          <div className="empty-state font-mono" role="status">
-            — MARKET NOT FOUND —
+          <div className="empty-state" role="status">
+            Market not found
           </div>
         </main>
       </div>
@@ -82,20 +82,20 @@ export default async function MarketPage({
     <div className="page-shell">
       <header className="site-header">
         <div className="site-header__brand">
-          <span className="site-header__mark font-mono">◈</span>
-          <span className="site-header__name font-sans">WORLDMARKET</span>
+          <span className="site-header__mark">◈</span>
+          <span className="site-header__name">WorldMarket</span>
         </div>
         <nav className="site-header__nav">
-          <Link href="/" className="nav-link font-mono">
-            ← MARKETS
+          <Link href="/" className="nav-link">
+            ← Markets
           </Link>
           <ConnectWalletButton />
         </nav>
       </header>
 
       <main className="market-detail">
-        <Link href="/" className="market-back-link font-mono">
-          ← ALL MARKETS
+        <Link href="/" className="market-back-link">
+          ← All markets
         </Link>
 
         <div className="market-detail__header">
@@ -120,23 +120,23 @@ export default async function MarketPage({
         {/* Price grid */}
         <section aria-label="Current prices">
           <div className="section-header">
-            <h2 className="section-title font-sans">CURRENT PRICES</h2>
+            <h2 className="section-title">Current prices</h2>
           </div>
           <div className="price-grid">
             <div className="price-card">
-              <div className="price-card__label font-mono">YES</div>
+              <div className="price-card__label">Yes</div>
               <div className="price-card__value price-card__value--yes font-mono">
                 {(market.price.yes * 100).toFixed(1)}¢
               </div>
             </div>
             <div className="price-card">
-              <div className="price-card__label font-mono">NO</div>
+              <div className="price-card__label">No</div>
               <div className="price-card__value price-card__value--no font-mono">
                 {(market.price.no * 100).toFixed(1)}¢
               </div>
             </div>
             <div className="price-card">
-              <div className="price-card__label font-mono">TOTAL POOL</div>
+              <div className="price-card__label">Total pool</div>
               <div className="price-card__value price-card__value--pool font-mono">
                 ${(Number(totalPool) / 1_000_000).toFixed(2)}
               </div>
@@ -147,22 +147,22 @@ export default async function MarketPage({
         {/* Human Cap Meter */}
         <section aria-labelledby="cap-heading">
           <div className="section-header">
-            <h2 id="cap-heading" className="section-title font-sans">
-              HUMAN CAP EXPOSURE
+            <h2 id="cap-heading" className="section-title">
+              Human cap exposure
             </h2>
           </div>
           <CapMeter
             exposure={market.yesPool ?? "0"}
             cap={humanCap}
-            label="YES pool / per-human cap"
+            label="Yes pool / per-human cap"
           />
         </section>
 
         {/* Live Agent Feed */}
         <section aria-labelledby="feed-heading">
           <div className="section-header">
-            <h2 id="feed-heading" className="section-title font-sans">
-              LIVE AGENT ACTIVITY
+            <h2 id="feed-heading" className="section-title">
+              Live agent activity
             </h2>
           </div>
           <AgentFeed apiUrl={API_URL} marketId={market.id} />

@@ -91,18 +91,18 @@ export default function RegisterPage() {
     <div className="page-shell">
       <header className="site-header">
         <div className="site-header__brand">
-          <span className="site-header__mark font-mono">◈</span>
-          <span className="site-header__name font-sans">WORLDMARKET</span>
+          <span className="site-header__mark">◈</span>
+          <span className="site-header__name">WorldMarket</span>
         </div>
         <nav className="site-header__nav" aria-label="Primary navigation">
-          <Link href="/" className="nav-link font-mono">
-            ← MARKETS
+          <Link href="/" className="nav-link">
+            ← Markets
           </Link>
         </nav>
       </header>
 
       <main className="register-page">
-        <h1 className="register-page__title font-sans">REGISTER</h1>
+        <h1 className="register-page__title">Register</h1>
 
         <div className="register-steps">
           {/* Step 1: Connect Wallet */}
@@ -111,9 +111,9 @@ export default function RegisterPage() {
             aria-labelledby="step1-title"
           >
             <div className="register-step__header">
-              <span className="register-step__num font-mono">01</span>
-              <h2 id="step1-title" className="register-step__title font-sans">
-                CONNECT WALLET
+              <span className="register-step__num">01</span>
+              <h2 id="step1-title" className="register-step__title">
+                Connect wallet
               </h2>
             </div>
             {isConnected ? (
@@ -122,10 +122,10 @@ export default function RegisterPage() {
               </p>
             ) : (
               <button
-                className="register-btn font-mono"
+                className="register-btn"
                 onClick={handleConnectWallet}
               >
-                CONNECT WALLET
+                Connect wallet
               </button>
             )}
           </section>
@@ -142,26 +142,26 @@ export default function RegisterPage() {
             aria-labelledby="step2-title"
           >
             <div className="register-step__header">
-              <span className="register-step__num font-mono">02</span>
-              <h2 id="step2-title" className="register-step__title font-sans">
-                VERIFY WITH WORLD ID
+              <span className="register-step__num">02</span>
+              <h2 id="step2-title" className="register-step__title">
+                Verify with World ID
               </h2>
             </div>
             <p className="register-step__body">
               Prove you are a unique human using the World app. One person, one cap.
             </p>
             {!isConnected ? (
-              <p className="register-step__body font-mono">Connect wallet first.</p>
+              <p className="register-step__body">Connect your wallet first.</p>
             ) : humanRegistered && isSuccess ? (
-              <p className="register-step__success font-mono">✓ HUMAN REGISTERED ON-CHAIN</p>
+              <p className="register-step__success">✓ Registered on-chain</p>
             ) : (
               <>
                 <WorldIDButton onVerify={handleVerify} walletAddress={address!} />
                 {isPending && (
-                  <p className="register-step__pending font-mono">⏳ CONFIRMING TRANSACTION…</p>
+                  <p className="register-step__pending">Confirming transaction…</p>
                 )}
                 {error && (
-                  <p className="register-step__error font-mono">✕ {error.message}</p>
+                  <p className="register-step__error">✕ {error.message}</p>
                 )}
               </>
             )}
@@ -179,9 +179,9 @@ export default function RegisterPage() {
             aria-labelledby="step3-title"
           >
             <div className="register-step__header">
-              <span className="register-step__num font-mono">03</span>
-              <h2 id="step3-title" className="register-step__title font-sans">
-                REGISTER AGENT WALLET
+              <span className="register-step__num">03</span>
+              <h2 id="step3-title" className="register-step__title">
+                Register agent wallet
               </h2>
             </div>
             <p className="register-step__body">
@@ -189,9 +189,9 @@ export default function RegisterPage() {
               your exposure cap.
             </p>
             {!isConnected ? (
-              <p className="register-step__body font-mono">Connect wallet first.</p>
+              <p className="register-step__body">Connect your wallet first.</p>
             ) : agentRegistered && isSuccess ? (
-              <p className="register-step__success font-mono">✓ AGENT REGISTERED</p>
+              <p className="register-step__success">✓ Agent registered</p>
             ) : (
               <>
                 <div className="register-input-row">
@@ -204,18 +204,18 @@ export default function RegisterPage() {
                     aria-label="Agent wallet address"
                   />
                   <button
-                    className="register-btn font-mono"
+                    className="register-btn"
                     onClick={handleRegisterAgent}
                     disabled={isPending}
                   >
-                    REGISTER
+                    Register
                   </button>
                 </div>
                 {agentError && (
-                  <p className="register-step__error font-mono">{agentError}</p>
+                  <p className="register-step__error">{agentError}</p>
                 )}
                 {isPending && (
-                  <p className="register-step__pending font-mono">⏳ CONFIRMING TRANSACTION…</p>
+                  <p className="register-step__pending">Confirming transaction…</p>
                 )}
               </>
             )}
