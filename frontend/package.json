@@ -7,6 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
     "@fontsource-variable/syne": "^5.2.7",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@tailwindcss/postcss": "^4.2.2",

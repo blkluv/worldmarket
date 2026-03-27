@@ -14,6 +14,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check (Railway uses this)
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
 // Free public reads — must come before paymentMiddleware
 app.use(marketsPublicRouter);
 
