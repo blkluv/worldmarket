@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
+import { LiveStatsTicker } from "@/components/LiveStatsTicker";
+import { HomepageFeed } from "@/components/HomepageFeed";
+import { CountdownTimer } from "@/components/CountdownTimer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -22,16 +25,6 @@ async function getMarkets(): Promise<Market[]> {
   }
 }
 
-function formatDeadline(ts: string): string {
-  return new Date(Number(ts) * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default async function HomePage() {
   const markets = await getMarkets();
 
@@ -45,6 +38,9 @@ export default async function HomePage() {
         <nav className="site-header__nav" aria-label="Primary navigation">
           <Link href="/register" className="nav-link">
             Register
+          </Link>
+          <Link href="/chat" className="nav-link">
+            Agent Chat
           </Link>
           <ConnectWalletButton />
         </nav>
@@ -108,9 +104,8 @@ export default async function HomePage() {
                       </div>
                       <div
                         className="market-card__deadline font-mono"
-                        aria-label={`Deadline: ${formatDeadline(market.deadline)}`}
                       >
-                        {formatDeadline(market.deadline)}
+                        <CountdownTimer deadline={Number(market.deadline)} />
                       </div>
                     </div>
                   </Link>
@@ -119,6 +114,10 @@ export default async function HomePage() {
             </ul>
           )}
         </section>
+
+        <LiveStatsTicker apiUrl={API_URL} />
+
+        <HomepageFeed apiUrl={API_URL} />
       </main>
     </div>
   );

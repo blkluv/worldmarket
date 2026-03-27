@@ -2,6 +2,7 @@ import "dotenv/config";
 import { agentFetch } from "./x402Client";
 import { walletAddress } from "./wallet";
 import { shouldBet } from "./strategy";
+import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const BET_AMOUNT = "1000000"; // $1 USDC (6 decimals)
@@ -164,6 +165,16 @@ async function run(): Promise<void> {
         console.log(
           `[${ts()}]    exposure: ${betResult.humanExposure}, cap: ${betResult.humanCap}`
         );
+        if (process.env.XMTP_ENABLED === "true") {
+          await broadcastCapHit({
+            marketId,
+            wallet: walletAddress,
+            humanExposure: betResult.humanExposure ?? "0",
+            humanCap: betResult.humanCap ?? "0",
+          }).catch((err: unknown) => {
+            console.error(`[${ts()}] ⚠️  XMTP broadcastCapHit failed:`, err);
+          });
+        }
         process.exit(0);
       }
 
@@ -187,6 +198,20 @@ async function run(): Promise<void> {
         console.log(
           `[${ts()}]    humanExposure: ${d.humanExposureAfter} / ${d.humanCap} (remaining: ${d.remainingCap})`
         );
+        if (process.env.XMTP_ENABLED === "true") {
+          await broadcastBet({
+            marketId,
+            outcome: d.outcome,
+            amount: d.amount,
+            wallet: walletAddress,
+            txHash: d.txHash,
+            humanExposureAfter: d.humanExposureAfter,
+            humanCap: d.humanCap,
+            remainingCap: d.remainingCap,
+          }).catch((err: unknown) => {
+            console.error(`[${ts()}] ⚠️  XMTP broadcastBet failed:`, err);
+          });
+        }
       }
     } catch (err) {
       console.error(`[${ts()}] ❌ Error in trading loop:`, err);

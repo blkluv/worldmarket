@@ -1,5 +1,7 @@
 import { CapMeter } from "@/components/CapMeter";
 import { AgentFeed } from "@/components/AgentFeed";
+import { PriceChart } from "@/components/PriceChart";
+import { BetForm } from "@/components/BetForm";
 import Link from "next/link";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
@@ -10,9 +12,11 @@ interface Market {
   question: string;
   deadline: string;
   status: string;
+  statusLabel: string;
   price: { yes: number; no: number };
   yesPool: string;
   noPool: string;
+  humanCap: string;
 }
 
 interface MarketResponse {
@@ -75,7 +79,6 @@ export default async function MarketPage({
     );
   }
 
-  const humanCap = "2000000"; // 2 USDC default until contract read wired up
   const totalPool = (BigInt(market.yesPool ?? "0") + BigInt(market.noPool ?? "0")).toString();
 
   return (
@@ -111,7 +114,7 @@ export default async function MarketPage({
                   : "market-status-badge--closed"
               }`}
             >
-              {market.status}
+              {market.statusLabel}
             </span>
             <span className="font-mono">Deadline: {formatDeadline(market.deadline)}</span>
           </div>
@@ -153,9 +156,29 @@ export default async function MarketPage({
           </div>
           <CapMeter
             exposure={market.yesPool ?? "0"}
-            cap={humanCap}
+            cap={market.humanCap ?? "0"}
             label="Yes pool / per-human cap"
           />
+        </section>
+
+        {/* Price Chart */}
+        <section aria-labelledby="chart-heading">
+          <div className="section-header">
+            <h2 id="chart-heading" className="section-title">
+              Price history
+            </h2>
+          </div>
+          <PriceChart marketId={market.id} apiUrl={API_URL} />
+        </section>
+
+        {/* Place a bet */}
+        <section aria-labelledby="bet-heading">
+          <div className="section-header">
+            <h2 id="bet-heading" className="section-title">
+              Place a bet
+            </h2>
+          </div>
+          <BetForm marketId={market.id} marketStatus={market.status} />
         </section>
 
         {/* Live Agent Feed */}

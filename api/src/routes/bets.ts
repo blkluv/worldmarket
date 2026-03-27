@@ -7,6 +7,8 @@ import {
   getHumanExposure,
   placeBet,
 } from "../services/contract";
+import { getPrice } from "../services/pricer";
+import { recordPrice } from "../services/history";
 import { emitEvent } from "./stream";
 
 const router = Router();
@@ -18,10 +20,11 @@ router.post("/markets/:id/bet", async (req: Request, res: Response) => {
     return;
   }
 
-  const { outcome, amount, wallet } = req.body as {
+  const { outcome, amount, wallet, agentName } = req.body as {
     outcome: unknown;
     amount: unknown;
     wallet: unknown;
+    agentName?: unknown;
   };
 
   // Validate outcome
@@ -107,6 +110,19 @@ router.post("/markets/:id/bet", async (req: Request, res: Response) => {
       amount,
       wallet,
       txHash: receipt?.hash ?? tx.hash,
+      agentName: typeof agentName === "string" ? agentName : null,
+    });
+
+    // Fetch updated market, record price history, emit price_update
+    const updated = await getMarket(marketId);
+    const newPrice = getPrice(updated.yesPool, updated.noPool);
+    recordPrice(marketId, newPrice.yes, newPrice.no);
+    emitEvent("price_update", {
+      marketId,
+      price: newPrice,
+      yesPool: updated.yesPool.toString(),
+      noPool: updated.noPool.toString(),
+      ts: Date.now(),
     });
 
     res.json({
