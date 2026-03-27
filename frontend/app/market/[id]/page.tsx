@@ -1,13 +1,14 @@
-import { CapMeter } from "../../../components/CapMeter";
-import { AgentFeed } from "../../../components/AgentFeed";
+import { CapMeter } from "@/components/CapMeter";
+import { AgentFeed } from "@/components/AgentFeed";
 import Link from "next/link";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 interface Market {
   id: number;
   question: string;
-  deadline: number;
+  deadline: string;
   status: string;
   price: { yes: number; no: number };
   yesPool: string;
@@ -18,13 +19,9 @@ interface MarketResponse {
   data?: Market;
 }
 
-interface ExposureResponse {
-  data?: { humanExposure: string; humanCap: string };
-}
-
 async function getMarket(id: string): Promise<Market | null> {
   try {
-    const res = await fetch(`${API_URL}/markets/${id}`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/markets/${id}/public`, { cache: "no-store" });
     if (!res.ok) return null;
     const json: MarketResponse = await res.json();
     return json.data ?? null;
@@ -33,100 +30,144 @@ async function getMarket(id: string): Promise<Market | null> {
   }
 }
 
-function formatDeadline(ts: number): string {
-  return new Date(ts * 1000).toLocaleString();
+function formatDeadline(ts: string): string {
+  return new Date(Number(ts) * 1000).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-export default async function MarketPage({ params }: { params: { id: string } }) {
-  const market = await getMarket(params.id);
+export default async function MarketPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const market = await getMarket(id);
 
   if (!market) {
     return (
-      <main style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 1rem" }}>
-        <Link href="/">← Back</Link>
-        <p style={{ marginTop: "1rem", color: "#888" }}>
-          Market not found. The API may require x402 payment from an agent.
-        </p>
-      </main>
+      <div className="page-shell">
+        <header className="site-header">
+          <div className="site-header__brand">
+            <span className="site-header__mark font-mono">◈</span>
+            <span className="site-header__name font-sans">WORLDMARKET</span>
+          </div>
+          <nav className="site-header__nav">
+            <Link href="/" className="nav-link font-mono">
+              ← MARKETS
+            </Link>
+            <ConnectWalletButton />
+          </nav>
+        </header>
+        <main className="market-detail">
+          <Link href="/" className="market-back-link font-mono">
+            ← ALL MARKETS
+          </Link>
+          <div className="empty-state font-mono" role="status">
+            — MARKET NOT FOUND —
+          </div>
+        </main>
+      </div>
     );
   }
 
-  // Approximate human cap as 2 USDC for display (actual value from contract)
-  const humanCap = "2000000";
-  // We don't know caller's address server-side; show pool stats as proxy
+  const humanCap = "2000000"; // 2 USDC default until contract read wired up
   const totalPool = (BigInt(market.yesPool ?? "0") + BigInt(market.noPool ?? "0")).toString();
 
   return (
-    <main style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 1rem" }}>
-      <Link href="/" style={{ color: "#2563eb", fontSize: "0.875rem" }}>
-        ← All Markets
-      </Link>
+    <div className="page-shell">
+      <header className="site-header">
+        <div className="site-header__brand">
+          <span className="site-header__mark font-mono">◈</span>
+          <span className="site-header__name font-sans">WORLDMARKET</span>
+        </div>
+        <nav className="site-header__nav">
+          <Link href="/" className="nav-link font-mono">
+            ← MARKETS
+          </Link>
+          <ConnectWalletButton />
+        </nav>
+      </header>
 
-      <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "1rem 0 0.5rem" }}>
-        {market.question}
-      </h1>
+      <main className="market-detail">
+        <Link href="/" className="market-back-link font-mono">
+          ← ALL MARKETS
+        </Link>
 
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", fontSize: "0.875rem", color: "#555" }}>
-        <span>Deadline: {formatDeadline(market.deadline)}</span>
-        <span
-          style={{
-            padding: "0.1rem 0.5rem",
-            borderRadius: "9999px",
-            background: market.status === "OPEN" ? "#dcfce7" : "#f3f4f6",
-            color: market.status === "OPEN" ? "#15803d" : "#6b7280",
-          }}
-        >
-          {market.status}
-        </span>
-      </div>
-
-      {/* Price display */}
-      <section
-        style={{
-          display: "flex",
-          gap: "1.5rem",
-          marginBottom: "1.5rem",
-          padding: "1rem",
-          background: "#f9fafb",
-          borderRadius: "0.5rem",
-          border: "1px solid #e5e7eb",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: "0.25rem" }}>YES Price</div>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#16a34a" }}>
-            {(market.price.yes * 100).toFixed(1)}¢
+        <div className="market-detail__header">
+          <div className="market-detail__id font-mono">
+            MKT-{String(market.id).padStart(4, "0")}
+          </div>
+          <h1 className="market-detail__question font-sans">{market.question}</h1>
+          <div className="market-detail__meta">
+            <span
+              className={`market-status-badge font-mono ${
+                market.status === "OPEN"
+                  ? "market-status-badge--open"
+                  : "market-status-badge--closed"
+              }`}
+            >
+              {market.status}
+            </span>
+            <span className="font-mono">Deadline: {formatDeadline(market.deadline)}</span>
           </div>
         </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: "0.25rem" }}>NO Price</div>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#dc2626" }}>
-            {(market.price.no * 100).toFixed(1)}¢
-          </div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: "0.25rem" }}>Total Pool</div>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#1d4ed8" }}>
-            ${(Number(totalPool) / 1_000_000).toFixed(2)}
-          </div>
-        </div>
-      </section>
 
-      {/* Human Cap Meter — shows pool-based estimate */}
-      <section style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontWeight: "600", marginBottom: "0.75rem" }}>Human Cap Exposure</h2>
-        <CapMeter
-          exposure={market.yesPool ?? "0"}
-          cap={humanCap}
-          label="YES pool / per-human cap"
-        />
-      </section>
+        {/* Price grid */}
+        <section aria-label="Current prices">
+          <div className="section-header">
+            <h2 className="section-title font-sans">CURRENT PRICES</h2>
+          </div>
+          <div className="price-grid">
+            <div className="price-card">
+              <div className="price-card__label font-mono">YES</div>
+              <div className="price-card__value price-card__value--yes font-mono">
+                {(market.price.yes * 100).toFixed(1)}¢
+              </div>
+            </div>
+            <div className="price-card">
+              <div className="price-card__label font-mono">NO</div>
+              <div className="price-card__value price-card__value--no font-mono">
+                {(market.price.no * 100).toFixed(1)}¢
+              </div>
+            </div>
+            <div className="price-card">
+              <div className="price-card__label font-mono">TOTAL POOL</div>
+              <div className="price-card__value price-card__value--pool font-mono">
+                ${(Number(totalPool) / 1_000_000).toFixed(2)}
+              </div>
+            </div>
+          </div>
+        </section>
 
-      {/* Live Agent Feed */}
-      <section>
-        <h2 style={{ fontWeight: "600", marginBottom: "0.75rem" }}>Live Agent Activity</h2>
-        <AgentFeed apiUrl={API_URL} marketId={market.id} />
-      </section>
-    </main>
+        {/* Human Cap Meter */}
+        <section aria-labelledby="cap-heading">
+          <div className="section-header">
+            <h2 id="cap-heading" className="section-title font-sans">
+              HUMAN CAP EXPOSURE
+            </h2>
+          </div>
+          <CapMeter
+            exposure={market.yesPool ?? "0"}
+            cap={humanCap}
+            label="YES pool / per-human cap"
+          />
+        </section>
+
+        {/* Live Agent Feed */}
+        <section aria-labelledby="feed-heading">
+          <div className="section-header">
+            <h2 id="feed-heading" className="section-title font-sans">
+              LIVE AGENT ACTIVITY
+            </h2>
+          </div>
+          <AgentFeed apiUrl={API_URL} marketId={market.id} />
+        </section>
+      </main>
+    </div>
   );
 }

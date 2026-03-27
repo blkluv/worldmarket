@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { IDKitRequestWidget, orbLegacy, type IDKitResult, type RpContext } from "@worldcoin/idkit";
 
@@ -9,56 +8,63 @@ interface WorldIDButtonProps {
   action?: string;
 }
 
-export function WorldIDButton({ onVerify, walletAddress, action = "register-human" }: WorldIDButtonProps) {
+export function WorldIDButton({
+  onVerify,
+  walletAddress,
+  action = process.env.NEXT_PUBLIC_WLD_ACTION ?? "register-human",
+}: WorldIDButtonProps) {
   const [open, setOpen] = useState(false);
   const [rpContext, setRpContext] = useState<RpContext | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const appId = (process.env.NEXT_PUBLIC_WLD_APP_ID ?? "") as `app_${string}`;
-
-  async function handleClick() {
+  async function loadRpContext() {
     setLoading(true);
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/rp-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) throw new Error("Failed to get rp_context from server");
-      const ctx: RpContext = await res.json();
+      if (!res.ok) throw new Error(`rp-signature ${res.status}`);
+      const ctx = (await res.json()) as RpContext;
       setRpContext(ctx);
       setOpen(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load World ID context");
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div>
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        style={{
-          padding: "0.5rem 1rem",
-          background: "#1d4ed8",
-          color: "white",
-          border: "none",
-          borderRadius: "0.375rem",
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.7 : 1,
-        }}
-      >
-        {loading ? "Loading..." : "Verify with World ID"}
+  if (error) {
+    return (
+      <button className="wid-btn wid-btn--error font-mono" onClick={loadRpContext}>
+        ✕ {error} — RETRY
       </button>
-      {error && <p style={{ color: "#dc2626", marginTop: "0.5rem", fontSize: "0.875rem" }}>{error}</p>}
+    );
+  }
 
+  if (loading) {
+    return (
+      <button className="wid-btn wid-btn--loading font-mono" disabled>
+        LOADING WORLD ID…
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        className={`wid-btn ${rpContext ? "wid-btn--ready" : ""} font-mono`}
+        onClick={rpContext ? () => setOpen(true) : loadRpContext}
+      >
+        {rpContext ? "◎ WORLD ID READY — CLICK TO SCAN" : "VERIFY WITH WORLD ID ◎"}
+      </button>
       {rpContext && (
         <IDKitRequestWidget
-          app_id={appId}
+          app_id={(process.env.NEXT_PUBLIC_WLD_APP_ID ?? "") as `app_${string}`}
           action={action}
           rp_context={rpContext}
           allow_legacy_proofs={true}
@@ -68,6 +74,6 @@ export function WorldIDButton({ onVerify, walletAddress, action = "register-huma
           onSuccess={onVerify}
         />
       )}
-    </div>
+    </>
   );
 }

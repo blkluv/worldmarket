@@ -7,19 +7,24 @@
     "start": "next start"
   },
   "dependencies": {
+    "@fontsource-variable/syne": "^5.2.7",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@tanstack/react-query": "^5.0.0",
+    "@wagmi/connectors": "^8.0.0",
+    "@worldcoin/idkit": "^4.0.11",
+    "dotenv": "^16.0.0",
     "next": "15.5.14",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@worldcoin/idkit": "^4.0.11",
-    "wagmi": "^2.0.0",
+    "tailwindcss": "^4.2.2",
     "viem": "^2.0.0",
-    "@tanstack/react-query": "^5.0.0",
-    "dotenv": "^16.0.0"
+    "wagmi": "^2.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }
 }

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { paymentMiddleware, x402Routes, resourceServer } from "./middleware/x402";
+import marketsPublicRouter from "./routes/marketsPublic";
 import marketsRouter from "./routes/markets";
 import betsRouter from "./routes/bets";
 import simulateRouter from "./routes/simulate";
@@ -13,7 +14,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// x402 payment middleware — must come before routes
+// Free public reads — must come before paymentMiddleware
+app.use(marketsPublicRouter);
+
+// x402 payment middleware — must come before gated routes
 app.use(paymentMiddleware(x402Routes, resourceServer));
 
 // Routes

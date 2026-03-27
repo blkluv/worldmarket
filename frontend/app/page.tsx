@@ -1,41 +1,32 @@
 import Link from "next/link";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-interface MarketPrice {
-  yes: number;
-  no: number;
-}
 
 interface Market {
   id: number;
   question: string;
-  deadline: number;
+  deadline: string;
   status: string;
-  price: MarketPrice;
-}
-
-interface MarketsResponse {
-  data?: Market[];
-  error?: string;
+  price: { yes: number; no: number };
 }
 
 async function getMarkets(): Promise<Market[]> {
   try {
-    const res = await fetch(`${API_URL}/markets`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/markets/public`, { cache: "no-store" });
     if (!res.ok) return [];
-    const json: MarketsResponse = await res.json();
+    const json = (await res.json()) as { data?: Market[] };
     return json.data ?? [];
   } catch {
     return [];
   }
 }
 
-function formatDeadline(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString(undefined, {
-    year: "numeric",
+function formatDeadline(ts: string): string {
+  return new Date(Number(ts) * 1000).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -45,64 +36,91 @@ export default async function HomePage() {
   const markets = await getMarkets();
 
   return (
-    <main style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 1rem" }}>
-      <header style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>🌍 WorldMarket</h1>
-        <p style={{ color: "#666" }}>Prediction markets with World ID human caps</p>
-        <Link href="/register" style={{ color: "#2563eb" }}>
-          Register / Connect Agent →
-        </Link>
+    <div className="page-shell">
+      <header className="site-header">
+        <div className="site-header__brand">
+          <span className="site-header__mark font-mono">◈</span>
+          <span className="site-header__name font-sans">WORLDMARKET</span>
+        </div>
+        <nav className="site-header__nav" aria-label="Primary navigation">
+          <Link href="/register" className="nav-link font-mono">
+            REGISTER
+          </Link>
+          <ConnectWalletButton />
+        </nav>
       </header>
 
-      <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginBottom: "1rem" }}>Open Markets</h2>
+      <main className="page-content">
+        <section className="hero-section" aria-labelledby="hero-heading">
+          <h1 id="hero-heading" className="hero-heading font-sans">
+            PREDICTION MARKETS
+            <br />
+            <span className="hero-heading__accent">FOR VERIFIED HUMANS</span>
+          </h1>
+          <p className="hero-sub font-mono">
+            Per‑human exposure caps enforced on‑chain via World ID.
+            <br />
+            AI agents pay to play. You set the ceiling.
+          </p>
+        </section>
 
-      {markets.length === 0 ? (
-        <p style={{ color: "#888" }}>No markets available. API may require x402 payment from agent.</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {markets.map((market) => (
-            <li
-              key={market.id}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: "0.5rem",
-                padding: "1rem",
-                background: "#fafafa",
-              }}
-            >
-              <Link href={`/market/${market.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>{market.question}</div>
-                <div style={{ display: "flex", gap: "1.5rem", fontSize: "0.875rem", color: "#555" }}>
-                  <span>
-                    YES:{" "}
-                    <strong style={{ color: "#16a34a" }}>
-                      {(market.price?.yes * 100).toFixed(1)}¢
-                    </strong>
-                  </span>
-                  <span>
-                    NO:{" "}
-                    <strong style={{ color: "#dc2626" }}>
-                      {(market.price?.no * 100).toFixed(1)}¢
-                    </strong>
-                  </span>
-                  <span>Deadline: {formatDeadline(market.deadline)}</span>
-                  <span
-                    style={{
-                      padding: "0.1rem 0.5rem",
-                      borderRadius: "9999px",
-                      background: market.status === "OPEN" ? "#dcfce7" : "#f3f4f6",
-                      color: market.status === "OPEN" ? "#15803d" : "#6b7280",
-                      fontWeight: "500",
-                    }}
+        <section aria-labelledby="markets-heading">
+          <div className="section-header">
+            <h2 id="markets-heading" className="section-title font-sans">
+              OPEN MARKETS
+            </h2>
+            <span className="section-count font-mono">{markets.length} active</span>
+          </div>
+
+          {markets.length === 0 ? (
+            <div className="empty-state font-mono" role="status">
+              — NO MARKETS AVAILABLE —
+            </div>
+          ) : (
+            <ul className="market-list" role="list" aria-label="Open prediction markets">
+              {markets.map((market) => (
+                <li key={market.id} className="market-card">
+                  <Link
+                    href={`/market/${market.id}`}
+                    className="market-card__link"
+                    aria-label={`View market: ${market.question}`}
                   >
-                    {market.status}
-                  </span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+                    <div className="market-card__id font-mono">
+                      MKT-{String(market.id).padStart(4, "0")}
+                    </div>
+                    <h3 className="market-card__question font-sans">{market.question}</h3>
+                    <div className="market-card__footer">
+                      <div className="market-card__odds" aria-label="Current odds">
+                        <span
+                          className="odds-yes font-mono"
+                          aria-label={`Yes: ${(market.price.yes * 100).toFixed(1)} cents`}
+                        >
+                          YES {(market.price.yes * 100).toFixed(1)}¢
+                        </span>
+                        <span className="odds-divider" aria-hidden="true">
+                          /
+                        </span>
+                        <span
+                          className="odds-no font-mono"
+                          aria-label={`No: ${(market.price.no * 100).toFixed(1)} cents`}
+                        >
+                          NO {(market.price.no * 100).toFixed(1)}¢
+                        </span>
+                      </div>
+                      <div
+                        className="market-card__deadline font-mono"
+                        aria-label={`Deadline: ${formatDeadline(market.deadline)}`}
+                      >
+                        {formatDeadline(market.deadline)}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

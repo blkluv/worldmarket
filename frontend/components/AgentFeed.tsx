@@ -1,160 +1,134 @@
 "use client";
+import { useEffect, useState } from "react";
+import {
+  isBetEvent,
+  isCapHitEvent,
+  type BetEventPayload,
+  type CapHitEventPayload,
+} from "@/lib/types/events";
 
-import { useEffect, useRef, useState } from "react";
-
-interface BetEvent {
-  type: "bet" | "cap_hit" | "ping";
-  marketId?: number;
-  outcome?: boolean;
-  amount?: string;
-  wallet?: string;
-  txHash?: string;
-  timestamp: string;
-}
+type FeedEntry =
+  | { type: "bet"; ts: string; payload: BetEventPayload }
+  | { type: "cap_hit"; ts: string; payload: CapHitEventPayload };
 
 interface AgentFeedProps {
   apiUrl: string;
   marketId?: number;
 }
 
-function truncateWallet(wallet: string): string {
-  if (wallet.length < 10) return wallet;
-  return `${wallet.slice(0, 6)}…${wallet.slice(-4)}`;
+function shortAddr(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function formatAmount(amount: string): string {
-  const n = Number(amount) / 1_000_000;
-  return `$${n.toFixed(2)}`;
+function usdAmount(amount: string) {
+  return `$${(Number(amount) / 1_000_000).toFixed(2)}`;
+}
+
+function shortHash(hash: string) {
+  return `${hash.slice(0, 8)}…`;
 }
 
 export function AgentFeed({ apiUrl, marketId }: AgentFeedProps) {
-  const [events, setEvents] = useState<BetEvent[]>([]);
-  const [connected, setConnected] = useState(false);
-  const esRef = useRef<EventSource | null>(null);
+  const [entries, setEntries] = useState<FeedEntry[]>([]);
+  const [status, setStatus] = useState<"connecting" | "live" | "error">("connecting");
 
   useEffect(() => {
     const es = new EventSource(`${apiUrl}/stream`);
-    esRef.current = es;
 
-    es.addEventListener("open", () => setConnected(true));
+    es.addEventListener("open", () => setStatus("live"));
+    es.addEventListener("error", () => setStatus("error"));
 
     es.addEventListener("bet", (e) => {
       try {
-        const data = JSON.parse((e as MessageEvent).data) as Omit<BetEvent, "type" | "timestamp">;
-        if (marketId !== undefined && data.marketId !== marketId) return;
-        setEvents((prev) =>
-          [{ ...data, type: "bet" as const, timestamp: new Date().toISOString() }, ...prev].slice(0, 50)
+        const raw = JSON.parse((e as MessageEvent).data) as unknown;
+        if (!isBetEvent(raw)) return;
+        if (marketId !== undefined && raw.marketId !== marketId) return;
+        setEntries((prev) =>
+          [{ type: "bet" as const, ts: new Date().toISOString(), payload: raw }, ...prev].slice(0, 50)
         );
       } catch {
-        // ignore parse errors
+        // noop
       }
     });
 
     es.addEventListener("cap_hit", (e) => {
       try {
-        const data = JSON.parse((e as MessageEvent).data) as Omit<BetEvent, "type" | "timestamp">;
-        if (marketId !== undefined && data.marketId !== marketId) return;
-        setEvents((prev) =>
-          [{ ...data, type: "cap_hit" as const, timestamp: new Date().toISOString() }, ...prev].slice(0, 50)
+        const raw = JSON.parse((e as MessageEvent).data) as unknown;
+        if (!isCapHitEvent(raw)) return;
+        if (marketId !== undefined && raw.marketId !== marketId) return;
+        setEntries((prev) =>
+          [{ type: "cap_hit" as const, ts: new Date().toISOString(), payload: raw }, ...prev].slice(0, 50)
         );
       } catch {
-        // ignore parse errors
+        // noop
       }
     });
 
-    es.addEventListener("error", () => setConnected(false));
-
-    return () => {
-      es.close();
-    };
+    return () => es.close();
   }, [apiUrl, marketId]);
 
   return (
-    <div
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "0.5rem",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          padding: "0.5rem 1rem",
-          background: "#f9fafb",
-          borderBottom: "1px solid #e5e7eb",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          fontSize: "0.875rem",
-        }}
-      >
-        <span
-          style={{
-            width: "0.5rem",
-            height: "0.5rem",
-            borderRadius: "50%",
-            background: connected ? "#16a34a" : "#d1d5db",
-            display: "inline-block",
-          }}
-        />
-        <span style={{ color: "#6b7280" }}>{connected ? "Live" : "Connecting..."}</span>
+    <div className="agent-feed">
+      <div className="agent-feed__header">
+        <span className="agent-feed__title font-sans">AGENT FEED</span>
+        <span className={`agent-feed__status agent-feed__status--${status} font-mono`}>
+          {status === "live" ? "● LIVE" : status === "connecting" ? "○ CONNECTING" : "✕ ERROR"}
+        </span>
       </div>
-
-      {events.length === 0 ? (
-        <div style={{ padding: "1.5rem", textAlign: "center", color: "#9ca3af", fontSize: "0.875rem" }}>
-          Waiting for agent activity…
-        </div>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {events.map((ev, i) => (
-            <li
-              key={i}
-              style={{
-                padding: "0.75rem 1rem",
-                borderBottom: i < events.length - 1 ? "1px solid #f3f4f6" : "none",
-                background: ev.type === "cap_hit" ? "#fef2f2" : "white",
-              }}
-            >
-              {ev.type === "cap_hit" ? (
-                <div>
-                  <span style={{ color: "#dc2626", fontWeight: "600" }}>🛑 Cap Hit!</span>
-                  {ev.wallet && (
-                    <span style={{ color: "#6b7280", fontSize: "0.8rem", marginLeft: "0.5rem" }}>
-                      {truncateWallet(ev.wallet)}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                    <span
-                      style={{
-                        padding: "0.1rem 0.4rem",
-                        borderRadius: "0.25rem",
-                        background: ev.outcome ? "#dcfce7" : "#fee2e2",
-                        color: ev.outcome ? "#15803d" : "#dc2626",
-                        fontWeight: "600",
-                        fontSize: "0.75rem",
-                      }}
-                    >
-                      {ev.outcome ? "YES" : "NO"}
-                    </span>
-                    <span style={{ fontWeight: "500" }}>{ev.amount ? formatAmount(ev.amount) : ""}</span>
-                    {ev.wallet && (
-                      <span style={{ color: "#9ca3af", fontSize: "0.8rem", fontFamily: "monospace" }}>
-                        {truncateWallet(ev.wallet)}
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ color: "#9ca3af", fontSize: "0.75rem" }}>
-                    {new Date(ev.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <div
+        className="agent-feed__list"
+        role="log"
+        aria-live="polite"
+        aria-label="Agent betting activity"
+      >
+        {entries.length === 0 && (
+          <div className="agent-feed__empty font-mono">Waiting for agent activity…</div>
+        )}
+        {entries.map((entry, i) => (
+          <div
+            key={`${entry.ts}-${i}`}
+            className={`agent-feed__entry agent-feed__entry--${entry.type}`}
+            aria-label={entry.type === "bet" ? "Bet placed" : "Cap hit"}
+          >
+            <span className="agent-feed__time font-mono">
+              {new Date(entry.ts).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </span>
+            {entry.type === "bet" && (
+              <span className="agent-feed__body font-mono">
+                <span className="agent-feed__addr">{shortAddr(entry.payload.wallet)}</span>
+                {" bet "}
+                <span className="agent-feed__amount">{usdAmount(entry.payload.amount)}</span>
+                {" on "}
+                <span className={entry.payload.outcome ? "agent-feed__yes" : "agent-feed__no"}>
+                  {entry.payload.outcome ? "YES" : "NO"}
+                </span>
+                {" "}
+                <a
+                  className="agent-feed__tx"
+                  href={`https://sepolia.basescan.org/tx/${entry.payload.txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View transaction ${entry.payload.txHash} on BaseScan`}
+                >
+                  {shortHash(entry.payload.txHash)}↗
+                </a>
+              </span>
+            )}
+            {entry.type === "cap_hit" && (
+              <span className="agent-feed__body agent-feed__body--cap font-mono">
+                🛑{" "}
+                <span className="agent-feed__addr">{shortAddr(entry.payload.wallet)}</span>
+                {" hit cap — "}
+                {usdAmount(entry.payload.humanExposure)} / {usdAmount(entry.payload.humanCap)}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
