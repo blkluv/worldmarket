@@ -33,7 +33,7 @@ contract MarketTest is Test {
     address internal carol = makeAddr("carol");
 
     uint256 internal constant PER_HUMAN_CAP = 1000e6; // 1 000 USDC
-    uint256 internal constant FUTURE_DEADLINE = 1 days;
+    uint256 internal constant DEADLINE_OFFSET = 1 days;
 
     function setUp() public {
         usdc = new MockUSDC();
@@ -70,7 +70,7 @@ contract MarketTest is Test {
 
     function _createOpenMarket() internal returns (uint256 marketId) {
         vm.prank(owner);
-        marketId = market.createMarket("Will ETH reach $10k?", block.timestamp + FUTURE_DEADLINE);
+        marketId = market.createMarket("Will ETH reach $10k?", block.timestamp + DEADLINE_OFFSET);
     }
 
     // -------------------------------------------------------------------------
@@ -136,7 +136,7 @@ contract MarketTest is Test {
     function test_createMarket_onlyOwner() public {
         vm.prank(alice);
         vm.expectRevert();
-        market.createMarket("Unauthorised?", block.timestamp + 1 days);
+        market.createMarket("Unauthorized?", block.timestamp + 1 days);
     }
 
     // -------------------------------------------------------------------------
@@ -217,7 +217,7 @@ contract MarketTest is Test {
         uint256 id = _createOpenMarket();
 
         // Warp past deadline and resolve.
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true);
 
@@ -228,7 +228,7 @@ contract MarketTest is Test {
 
     function test_bet_revertsAfterDeadline() public {
         uint256 id = _createOpenMarket();
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
 
         vm.prank(alice);
         vm.expectRevert("market closed");
@@ -290,7 +290,7 @@ contract MarketTest is Test {
 
     function test_resolve_success() public {
         uint256 id = _createOpenMarket();
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
 
         vm.prank(owner);
         market.resolve(id, true);
@@ -305,7 +305,7 @@ contract MarketTest is Test {
 
     function test_resolve_revertsIfNotOpen() public {
         uint256 id = _createOpenMarket();
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true);
 
@@ -324,7 +324,7 @@ contract MarketTest is Test {
 
     function test_resolve_onlyOwner() public {
         uint256 id = _createOpenMarket();
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
 
         vm.prank(alice);
         vm.expectRevert();
@@ -346,7 +346,7 @@ contract MarketTest is Test {
         vm.prank(bob);
         market.bet(id, false, 200e6);
 
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true); // YES wins
 
@@ -375,7 +375,7 @@ contract MarketTest is Test {
         vm.prank(carol);
         market.bet(id, false, 200e6); // 200 shares (bootstrap for NO)
 
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true); // YES wins
 
@@ -409,7 +409,7 @@ contract MarketTest is Test {
         vm.prank(alice);
         market.bet(id, false, 100e6); // Alice bet NO
 
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true); // YES wins
 
@@ -427,7 +427,7 @@ contract MarketTest is Test {
         vm.prank(bob);
         market.bet(id, false, 100e6);
 
-        vm.warp(block.timestamp + FUTURE_DEADLINE + 1);
+        vm.warp(block.timestamp + DEADLINE_OFFSET + 1);
         vm.prank(owner);
         market.resolve(id, true);
 
