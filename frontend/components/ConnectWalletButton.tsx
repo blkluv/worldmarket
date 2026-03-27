@@ -3,7 +3,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 export function ConnectWalletButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
 
   if (isConnected && address) {
@@ -13,7 +13,7 @@ export function ConnectWalletButton() {
         onClick={() => disconnect()}
         aria-label={`Disconnect wallet ${address}`}
       >
-        {address.slice(0, 6)}…{address.slice(-4)} ✕
+        {address.slice(0, 6)}\u2026{address.slice(-4)} \u2715
       </button>
     );
   }
@@ -30,7 +30,7 @@ export function ConnectWalletButton() {
           disabled={isPending}
           aria-label="Connect injected wallet (MetaMask)"
         >
-          {isPending ? "CONNECTING…" : "CONNECT WALLET"}
+          {isPending ? "CONNECTING\u2026" : "CONNECT WALLET"}
         </button>
       )}
       {wcConnector && (
@@ -47,6 +47,11 @@ export function ConnectWalletButton() {
         <button className="wallet-btn font-mono" disabled>
           NO WALLET DETECTED
         </button>
+      )}
+      {error && (
+        <p className="wallet-error font-mono" role="alert">
+          {error.message}
+        </p>
       )}
     </div>
   );

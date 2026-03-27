@@ -62,10 +62,13 @@ router.post("/markets/:id/bet", async (req: Request, res: Response) => {
     }
 
     // Check wallet is registered
-    const human = await humanOf(wallet);
-    if (!human || human === "0x0000000000000000000000000000000000000000") {
-      res.status(400).json({ error: "Wallet is not registered with HumanRegistry" });
-      return;
+    let human = wallet;
+    if (process.env.DEMO_MODE !== "true") {
+      human = await humanOf(wallet);
+      if (!human || human === "0x0000000000000000000000000000000000000000") {
+        res.status(400).json({ error: "Wallet is not registered with HumanRegistry" });
+        return;
+      }
     }
 
     // Check human cap

@@ -8,4 +8,6 @@ const signer = privateKeyToAccount(process.env.AGENT_PRIVATE_KEY as `0x${string}
 const client = new x402Client();
 client.register("eip155:*", new ExactEvmScheme(signer));
 
-export const agentFetch = wrapFetchWithPayment(fetch, client);
+export const agentFetch = process.env.DEMO_MODE === "true"
+  ? fetch
+  : wrapFetchWithPayment(fetch, client);

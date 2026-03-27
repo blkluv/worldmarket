@@ -10,7 +10,7 @@ const WORLD_MARKET_ABI = [
   "function perHumanCap() view returns (uint256)",
   "function humanExposure(uint256 marketId, address human) view returns (uint256)",
   "function positions(uint256 marketId, bool outcome, address wallet) view returns (uint256)",
-  "function bet(uint256 marketId, bool outcome, uint256 amount) nonpayable",
+  "function bet(uint256 marketId, bool outcome, uint256 amount)",
 ];
 
 export interface MarketData {

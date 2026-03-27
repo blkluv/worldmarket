@@ -18,7 +18,9 @@ app.use(express.json());
 app.use(marketsPublicRouter);
 
 // x402 payment middleware — must come before gated routes
-app.use(paymentMiddleware(x402Routes, resourceServer));
+if (process.env.DEMO_MODE !== "true") {
+  app.use(paymentMiddleware(x402Routes, resourceServer));
+}
 
 // Routes
 app.use(marketsRouter);
