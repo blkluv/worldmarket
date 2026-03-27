@@ -30,6 +30,63 @@ if (process.env.DEMO_MODE !== "true") {
   app.use(paymentMiddleware(x402Routes, resourceServer));
 }
 
+if (process.env.DEMO_MODE === "true") {
+  app.get("/markets", async (_req, res) => {
+    res.json({
+      data: [
+        {
+          id: 0,
+          question: "Will the agent successfully trade in demo mode?",
+          deadline: (Date.now() + 86400000).toString(),
+          status: 0,
+          yesPool: "100000000",
+          noPool: "100000000",
+          price: { yes: 0.5, no: 0.5 },
+        },
+      ],
+    });
+  });
+
+  app.get("/markets/:id/price", async (_req, res) => {
+    res.json({
+      data: {
+        marketId: 0,
+        price: { yes: 0.51, no: 0.49 },
+        yesPool: "100000000",
+        noPool: "100000000",
+      },
+    });
+  });
+
+  app.post("/markets/:id/simulate", async (_req, res) => {
+    res.json({
+      data: {
+        marketId: 0,
+        outcome: true,
+        amountIn: "1000000",
+        sharesOut: "990000",
+        priceImpact: 0.01,
+        priceBefore: { yes: 0.5, no: 0.5 },
+        priceAfter: { yes: 0.51, no: 0.49 },
+      },
+    });
+  });
+
+  app.post("/markets/:id/bet", async (_req, res) => {
+    res.json({
+      data: {
+        txHash: "0x" + "0".repeat(64),
+        marketId: 0,
+        outcome: true,
+        amount: "1000000",
+        humanExposureAfter: "1000000",
+        humanCap: "10000000",
+        remainingCap: "9000000",
+      },
+    });
+  });
+}
+
 // Routes
 app.use(marketsRouter);
 app.use(betsRouter);
