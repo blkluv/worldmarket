@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 
 interface CapMeterProps {
   exposure: string;
@@ -7,52 +8,47 @@ interface CapMeterProps {
 }
 
 export function CapMeter({ exposure, cap, label }: CapMeterProps) {
-  const exposureNum = Number(BigInt(exposure || "0")) / 1_000_000;
-  const capNum = Number(BigInt(cap || "1")) / 1_000_000;
-  const pct = capNum > 0 ? Math.min((exposureNum / capNum) * 100, 100) : 0;
-  const isNearFull = pct > 80;
+  const raw = cap === "0" ? 1n : BigInt(cap || "1");
+  const pctRaw = Number((BigInt(exposure || "0") * 10000n) / raw) / 100;
+  const pct = Math.min(pctRaw, 100);
+  const isMaxed = BigInt(exposure || "0") >= BigInt(cap || "1");
+  const exposureUSD = (Number(BigInt(exposure || "0")) / 1_000_000).toFixed(2);
+  const capUSD = (Number(BigInt(cap || "1")) / 1_000_000).toFixed(2);
+
+  const prevPct = useRef(pct);
+  const [slamming, setSlamming] = useState(false);
+
+  useEffect(() => {
+    if (isMaxed && prevPct.current < 100) {
+      setSlamming(true);
+      const t = setTimeout(() => setSlamming(false), 600);
+      return () => clearTimeout(t);
+    }
+    prevPct.current = pct;
+  }, [isMaxed, pct]);
 
   return (
-    <div>
-      {label && (
-        <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: "0.25rem" }}>{label}</div>
-      )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: "0.875rem",
-          marginBottom: "0.25rem",
-          fontWeight: "500",
-        }}
-      >
-        <span style={{ color: isNearFull ? "#dc2626" : "#374151" }}>
-          ${exposureNum.toFixed(2)}
+    <div
+      className="cap-meter"
+      data-maxed={isMaxed || undefined}
+      data-slamming={slamming || undefined}
+    >
+      {label && <div className="cap-meter__label">{label}</div>}
+      <div className="cap-meter__header">
+        <span className="cap-meter__pct font-mono">{pct.toFixed(1)}%</span>
+        <span className="cap-meter__amounts font-mono">
+          ${exposureUSD} <span className="cap-meter__sep">/</span> ${capUSD}
         </span>
-        <span style={{ color: "#6b7280" }}>${capNum.toFixed(2)} cap</span>
       </div>
-      <div
-        style={{
-          width: "100%",
-          height: "0.75rem",
-          background: "#e5e7eb",
-          borderRadius: "9999px",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: isNearFull ? "#dc2626" : "#2563eb",
-            borderRadius: "9999px",
-            transition: "width 0.3s ease",
-          }}
-        />
+      <div className="cap-meter__track">
+        <div className="cap-meter__fill" style={{ width: `${pct}%` }} />
+        {isMaxed && <div className="cap-meter__wall" />}
       </div>
-      <div style={{ fontSize: "0.75rem", color: isNearFull ? "#dc2626" : "#6b7280", marginTop: "0.25rem" }}>
-        {pct.toFixed(1)}% of cap used{isNearFull ? " ⚠️" : ""}
-      </div>
+      {isMaxed && (
+        <div className="cap-meter__maxed-label font-mono">
+          🛑 CAP REACHED — BETS REJECTED
+        </div>
+      )}
     </div>
   );
 }

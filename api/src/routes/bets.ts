@@ -75,6 +75,13 @@ router.post("/markets/:id/bet", async (req: Request, res: Response) => {
     ]);
 
     if (humanExposure + amountBig > humanCap) {
+      emitEvent("cap_hit", {
+        marketId,
+        wallet,
+        humanExposure: humanExposure.toString(),
+        humanCap: humanCap.toString(),
+        requestedAmount: amount,
+      });
       res.json({
         error: "human cap exceeded",
         humanExposure: humanExposure.toString(),
