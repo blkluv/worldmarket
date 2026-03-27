@@ -14,6 +14,7 @@
     "@tanstack/react-query": "^5.0.0",
     "@wagmi/connectors": "^8.0.0",
     "@worldcoin/idkit": "^4.0.11",
+    "@xmtp/browser-sdk": "^7.0.0",
     "dotenv": "^16.0.0",
     "next": "15.5.14",
     "react": "^19.0.0",

@@ -9,6 +9,9 @@ import marketsRouter from "./routes/markets";
 import betsRouter from "./routes/bets";
 import simulateRouter from "./routes/simulate";
 import streamRouter from "./routes/stream";
+import historyRouter from "./routes/history";
+import resolveRouter from "./routes/resolve";
+import statsRouter from "./routes/stats";
 
 const app = express();
 app.use(cors());
@@ -19,6 +22,8 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 // Free public reads — must come before paymentMiddleware
 app.use(marketsPublicRouter);
+app.use(historyRouter);
+app.use(statsRouter);
 
 // x402 payment middleware — must come before gated routes
 if (process.env.DEMO_MODE !== "true") {
@@ -30,6 +35,7 @@ app.use(marketsRouter);
 app.use(betsRouter);
 app.use(simulateRouter);
 app.use(streamRouter);
+app.use(resolveRouter);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

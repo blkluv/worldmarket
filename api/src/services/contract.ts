@@ -30,7 +30,7 @@ const DEMO_CAP = BigInt("10000000000"); // $10,000 USDC per human
 const DEMO_MARKETS: MarketData[] = [
   {
     id: 0,
-    question: "Will BTC exceed $100k by end of 2025?",
+    question: "Will BTC exceed $150k by end of 2026?",
     deadline: BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 3600),
     status: 0,
     winningOutcome: false,
@@ -40,7 +40,7 @@ const DEMO_MARKETS: MarketData[] = [
   },
   {
     id: 1,
-    question: "Will the Fed cut rates before Q3 2025?",
+    question: "Will the Fed cut rates to below 3% before Jan 2027?",
     deadline: BigInt(Math.floor(Date.now() / 1000) + 180 * 24 * 3600),
     status: 0,
     winningOutcome: false,
@@ -50,7 +50,7 @@ const DEMO_MARKETS: MarketData[] = [
   },
   {
     id: 2,
-    question: "Will Ethereum enable native account abstraction in 2025?",
+    question: "Will Ethereum EIP-7702 be live on mainnet before 2027?",
     deadline: BigInt(Math.floor(Date.now() / 1000) + 270 * 24 * 3600),
     status: 0,
     winningOutcome: false,
@@ -62,9 +62,37 @@ const DEMO_MARKETS: MarketData[] = [
 
 const demoExposure: Record<string, bigint> = {};
 
+// --- Stats counters (DEMO_MODE) ---
+let demoTotalBets = 0;
+let demoTotalVolume = 0n;
+const demoActiveWallets = new Set<string>();
+
+export function getDemoStats(): {
+  totalBets: number;
+  totalVolume: bigint;
+  activeAgents: number;
+  marketsOpen: number;
+} {
+  const marketsOpen = DEMO_MARKETS.filter((m) => m.status === 0).length;
+  return {
+    totalBets: demoTotalBets,
+    totalVolume: demoTotalVolume,
+    activeAgents: demoActiveWallets.size,
+    marketsOpen,
+  };
+}
+
 function demoKey(marketId: number, wallet: string): string {
   return `${marketId}:${wallet.toLowerCase()}`;
 }
+export function resolveMarket(marketId: number, winningOutcome: boolean): void {
+  const m = DEMO_MARKETS[marketId];
+  if (!m) throw new Error(`Market ${marketId} not found`);
+  m.status = 1;
+  m.winningOutcome = winningOutcome;
+  m.winningOutcomeSet = true;
+}
+
 // --- end DEMO MODE state ---
 
 let _provider: ethers.JsonRpcProvider | null = null;
@@ -149,6 +177,10 @@ export async function placeBet(
     }
     const key = demoKey(marketId, wallet);
     demoExposure[key] = (demoExposure[key] ?? 0n) + amount;
+    // Track stats
+    demoTotalBets += 1;
+    demoTotalVolume += amount;
+    demoActiveWallets.add(wallet.toLowerCase());
     const fakeTxHash = `0x${Buffer.from(
       `demo-${Date.now()}-${Math.random()}`
     ).toString("hex").slice(0, 62)}`;

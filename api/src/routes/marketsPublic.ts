@@ -1,18 +1,27 @@
 import { Router, Request, Response } from "express";
-import { getAllMarkets, getMarket } from "../services/contract";
+import { getAllMarkets, getMarket, getPerHumanCap } from "../services/contract";
 import { getPrice } from "../services/pricer";
 
 const router = Router();
 
+function statusLabel(status: number): string {
+  if (status === 0) return "OPEN";
+  if (status === 1) return "RESOLVED";
+  return "CLOSED";
+}
+
 router.get("/markets/public", async (_req: Request, res: Response) => {
   try {
     const markets = await getAllMarkets();
+    const humanCap = (await getPerHumanCap()).toString();
     const data = markets.map((m) => ({
       ...m,
       deadline: m.deadline.toString(),
       yesPool: m.yesPool.toString(),
       noPool: m.noPool.toString(),
       price: getPrice(m.yesPool, m.noPool),
+      humanCap,
+      statusLabel: statusLabel(m.status),
     }));
     res.json({ data });
   } catch (err) {
@@ -28,6 +37,7 @@ router.get("/markets/:id/public", async (req: Request, res: Response) => {
   }
   try {
     const m = await getMarket(id);
+    const humanCap = (await getPerHumanCap()).toString();
     res.json({
       data: {
         ...m,
@@ -35,6 +45,8 @@ router.get("/markets/:id/public", async (req: Request, res: Response) => {
         yesPool: m.yesPool.toString(),
         noPool: m.noPool.toString(),
         price: getPrice(m.yesPool, m.noPool),
+        humanCap,
+        statusLabel: statusLabel(m.status),
       },
     });
   } catch (err) {
