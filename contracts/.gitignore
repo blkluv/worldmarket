@@ -1,0 +1,9 @@
+# Build artifacts
+out/
+cache/
+
+# Downloaded libs (managed by forge install)
+lib/
+
+# Local solc binary (used for offline builds)
+solc-bin
