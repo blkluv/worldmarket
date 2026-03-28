@@ -6,9 +6,10 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
 
 export const wagmiConfig = createConfig({
   chains: [baseSepolia],
+  ssr: true,
   connectors: [
     injected(),
-    walletConnect({ projectId }),
+    walletConnect({ projectId, showQrModal: true }),
   ],
   transports: {
     [baseSepolia.id]: http(),
