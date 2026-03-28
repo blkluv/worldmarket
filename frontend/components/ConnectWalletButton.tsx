@@ -1,10 +1,16 @@
 "use client";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useEffect, useState } from "react";
 
 export function ConnectWalletButton() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
+  const [hasInjected, setHasInjected] = useState(false);
+
+  useEffect(() => {
+    setHasInjected(typeof window !== "undefined" && !!window.ethereum);
+  }, []);
 
   if (isConnected && address) {
     return (
@@ -23,7 +29,7 @@ export function ConnectWalletButton() {
 
   return (
     <div className="wallet-connect-group" role="group" aria-label="Connect wallet">
-      {injectedConnector && (
+      {hasInjected && injectedConnector && (
         <button
           className="wallet-btn"
           onClick={() => connect({ connector: injectedConnector })}
@@ -32,6 +38,17 @@ export function ConnectWalletButton() {
         >
           {isPending ? "Connecting…" : "Connect wallet"}
         </button>
+      )}
+      {!hasInjected && (
+        <a
+          className="wallet-btn"
+          href="https://metamask.io/download/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Install MetaMask"
+        >
+          Install MetaMask
+        </a>
       )}
       {wcConnector && (
         <button
@@ -43,12 +60,7 @@ export function ConnectWalletButton() {
           WC
         </button>
       )}
-      {!injectedConnector && !wcConnector && (
-        <button className="wallet-btn" disabled>
-          No wallet detected
-        </button>
-      )}
-      {error && (
+      {error && !error.message.toLowerCase().includes("rejected") && (
         <p className="wallet-error" role="alert">
           {error.message}
         </p>
