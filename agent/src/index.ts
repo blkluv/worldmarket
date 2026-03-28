@@ -127,10 +127,13 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
-  const marketId = markets[0].id ?? 0;
-  console.log(`[${ts()}] 📊 Trading market ${marketId}: "${markets[0].question}"`);
+  let marketIdx = 0;
+  console.log(`[${ts()}] 📊 Trading ${markets.length} market(s) in rotation`);
 
   while (true) {
+    const market = markets[marketIdx % markets.length];
+    marketIdx++;
+    const marketId = market.id ?? 0;
     try {
       // 1. Check price
       const price = await getPrice(marketId);
@@ -171,7 +174,7 @@ async function run(): Promise<void> {
 
       // 4. Handle cap hit
       if (betResult.error === "human cap exceeded") {
-        console.log(`[${ts()}] 🛑 Human cap hit — stopping`);
+        console.log(`[${ts()}] 🛑 Human cap hit on market ${marketId} — skipping to next`);
         console.log(
           `[${ts()}]    exposure: ${betResult.humanExposure}, cap: ${betResult.humanCap}`
         );
@@ -185,7 +188,8 @@ async function run(): Promise<void> {
             console.error(`[${ts()}] ⚠️  XMTP broadcastCapHit failed:`, err);
           });
         }
-        process.exit(0);
+        await delay(LOOP_DELAY_MS);
+        continue;
       }
 
       // 5. Handle insufficient balance

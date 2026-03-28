@@ -18,9 +18,12 @@ interface Market {
 interface AgentStats {
   name: string;
   bets: number;
-  volume: number; // raw USDC base units
+  yesBets: number;
+  recentBets: boolean[];
+  volume: number;
   lastOutcome: boolean | null;
   lastTs: number | null;
+  lastMarketId: number | null;
   pulse: boolean;
 }
 
@@ -41,18 +44,24 @@ interface GlobalStats {
   marketsOpen: number;
 }
 
+interface PricePoint {
+  ts: number;
+  yes: number;
+  no: number;
+}
+
 // ─── Agent cosmetics ──────────────────────────────────────────────────────────
 
-const AGENT_META: Record<string, { emoji: string; color: string; label: string }> = {
-  contrarian: { emoji: "🔄", color: "oklch(74% 0.18 55)",  label: "CONTRARIAN" },
-  momentum:   { emoji: "📈", color: "oklch(65% 0.19 243)", label: "MOMENTUM"   },
-  random:     { emoji: "🎲", color: "oklch(65% 0.20 295)", label: "RANDOM"     },
-  "yes-only": { emoji: "✅", color: "oklch(65% 0.16 155)", label: "YES-ONLY"   },
-  "no-only":  { emoji: "❌", color: "oklch(62% 0.20 25)",  label: "NO-ONLY"    },
+const AGENT_META: Record<string, { emoji: string; color: string; label: string; desc: string }> = {
+  contrarian: { emoji: "🔄", color: "oklch(74% 0.18 55)",  label: "CONTRARIAN", desc: "Bets the underpriced side"    },
+  momentum:   { emoji: "📈", color: "oklch(65% 0.19 243)", label: "MOMENTUM",   desc: "Follows the dominant outcome" },
+  random:     { emoji: "🎲", color: "oklch(65% 0.20 295)", label: "RANDOM",     desc: "Coin flip on every market"   },
+  "yes-only": { emoji: "✅", color: "oklch(65% 0.16 155)", label: "YES-ONLY",   desc: "Always bets YES"             },
+  "no-only":  { emoji: "❌", color: "oklch(62% 0.20 25)",  label: "NO-ONLY",    desc: "Always bets NO"              },
 };
 
 function agentMeta(name: string) {
-  return AGENT_META[name] ?? { emoji: "🤖", color: "oklch(60% 0.01 250)", label: name.toUpperCase() };
+  return AGENT_META[name] ?? { emoji: "🤖", color: "oklch(60% 0.01 250)", label: name.toUpperCase(), desc: "Unknown strategy" };
 }
 
 function usd(amount: string | number): string {
@@ -67,20 +76,116 @@ function timeAgo(ts: number): string {
   return `${Math.floor(s / 3600)}h ago`;
 }
 
-function shortQ(q: string, max = 42): string {
+function shortQ(q: string, max = 38): string {
   return q.length > max ? q.slice(0, max) + "…" : q;
+}
+
+// ─── Helper components ────────────────────────────────────────────────────────
+
+// YES% price sparkline (polyline SVG)
+function PriceSparkline({ history, width = 120, height = 36 }: {
+  history: PricePoint[];
+  width?: number;
+  height?: number;
+}) {
+  if (history.length < 2) {
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <text x={width / 2} y={height / 2 + 4} textAnchor="middle" fontSize="8"
+          fill="var(--color-muted)" fontFamily="var(--font-mono)">warming up…</text>
+      </svg>
+    );
+  }
+  const pad = 2;
+  const yesValues = history.map((p) => p.yes);
+  const minV = Math.min(...yesValues);
+  const maxV = Math.max(...yesValues);
+  const range = maxV - minV || 0.01;
+  const points = history.map((p, i) => {
+    const x = pad + (i / (history.length - 1)) * (width - pad * 2);
+    const y = pad + (1 - (p.yes - minV) / range) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const lastYes = yesValues[yesValues.length - 1];
+  const color = lastYes >= 0.5 ? "var(--color-yes)" : "var(--color-danger)";
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
+      <polyline points={points.join(" ")} fill="none" stroke={color}
+        strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// Agent bet-outcome sparkline (dots: YES=green, NO=red)
+function BetSparkline({ bets, width = 80, height = 28 }: {
+  bets: boolean[];
+  width?: number;
+  height?: number;
+}) {
+  const sliced = bets.slice(-20);
+  if (sliced.length === 0) return <svg width={width} height={height} />;
+  const n = sliced.length;
+  const cy = height / 2;
+  const r = 3;
+  const pad = r + 1;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {sliced.map((outcome, i) => {
+        const cx = pad + (i / Math.max(n - 1, 1)) * (width - pad * 2);
+        return (
+          <circle key={i} cx={cx.toFixed(1)} cy={cy} r={r}
+            fill={outcome ? "var(--color-yes)" : "var(--color-danger)"}
+            opacity={0.55 + 0.45 * (i / n)} />
+        );
+      })}
+    </svg>
+  );
+}
+
+// Fixed hue per market id
+const MARKET_COLORS = [
+  "oklch(74% 0.18 55)",
+  "oklch(65% 0.19 243)",
+  "oklch(65% 0.16 155)",
+];
+function marketColor(id: number) { return MARKET_COLORS[id % MARKET_COLORS.length]; }
+
+// Animated count-up hook
+function useAnimatedNumber(target: number, duration = 300): number {
+  const [display, setDisplay] = useState(target);
+  const prevRef = useRef(target);
+  useEffect(() => {
+    const start = prevRef.current;
+    const diff = target - start;
+    if (diff === 0) return;
+    const startTime = performance.now();
+    let raf: number;
+    const step = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(start + diff * eased));
+      if (t < 1) raf = requestAnimationFrame(step);
+      else prevRef.current = target;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return display;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AgentsPage() {
-  const [markets, setMarkets]           = useState<Market[]>([]);
-  const [agents, setAgents]             = useState<Map<string, AgentStats>>(new Map());
-  const [feed, setFeed]                 = useState<FeedEntry[]>([]);
-  const [streamStatus, setStreamStatus] = useState<"connecting" | "live" | "error">("connecting");
-  const [globalStats, setGlobalStats]   = useState<GlobalStats | null>(null);
-  const [tick, setTick]                 = useState(0);
-  const esRef = useRef<EventSource | null>(null);
+  const [markets, setMarkets]                 = useState<Market[]>([]);
+  const [agents, setAgents]                   = useState<Map<string, AgentStats>>(new Map());
+  const [feed, setFeed]                       = useState<FeedEntry[]>([]);
+  const [streamStatus, setStreamStatus]       = useState<"connecting" | "live" | "error">("connecting");
+  const [globalStats, setGlobalStats]         = useState<GlobalStats | null>(null);
+  const [priceHistories, setPriceHistories]   = useState<Map<number, PricePoint[]>>(new Map());
+  const [marketLastAgent, setMarketLastAgent] = useState<Map<number, string>>(new Map());
+  const [newFeedId, setNewFeedId]             = useState<string | null>(null);
+  const [tick, setTick]                       = useState(0);
+  const esRef      = useRef<EventSource | null>(null);
   const marketsRef = useRef<Market[]>([]);
 
   // Re-render every 15s to keep "X ago" timestamps fresh
@@ -89,7 +194,7 @@ export default function AgentsPage() {
     return () => clearInterval(t);
   }, []);
 
-  // Initial data fetch
+  // Initial data fetch — markets + stats + price histories
   useEffect(() => {
     fetch(`${API_URL}/markets/public`, { cache: "no-store" })
       .then((r) => r.json())
@@ -97,6 +202,20 @@ export default function AgentsPage() {
         const m = j.data ?? [];
         setMarkets(m);
         marketsRef.current = m;
+        m.forEach((market) => {
+          fetch(`${API_URL}/markets/${market.id}/price-history`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((j2: { data?: PricePoint[] }) => {
+              if (j2.data) {
+                setPriceHistories((prev) => {
+                  const next = new Map(prev);
+                  next.set(market.id, j2.data!);
+                  return next;
+                });
+              }
+            })
+            .catch(() => {});
+        });
       })
       .catch(() => {});
 
@@ -124,26 +243,24 @@ export default function AgentsPage() {
         const name = raw.agentName ?? "unknown";
         const question = marketsRef.current.find((m) => m.id === raw.marketId)?.question ?? `Market #${raw.marketId}`;
 
-        // Update agent map
         setAgents((prev) => {
           const next = new Map(prev);
           const existing = next.get(name) ?? {
-            name,
-            bets: 0,
-            volume: 0,
-            lastOutcome: null,
-            lastTs: null,
-            pulse: false,
+            name, bets: 0, yesBets: 0, recentBets: [],
+            volume: 0, lastOutcome: null, lastTs: null, lastMarketId: null, pulse: false,
           };
+          const updatedRecent = [...existing.recentBets, raw.outcome].slice(-20);
           next.set(name, {
             ...existing,
             bets: existing.bets + 1,
+            yesBets: existing.yesBets + (raw.outcome ? 1 : 0),
+            recentBets: updatedRecent,
             volume: existing.volume + Number(raw.amount),
             lastOutcome: raw.outcome,
             lastTs: Date.now(),
+            lastMarketId: raw.marketId,
             pulse: true,
           });
-          // Clear pulse after 1.2s
           setTimeout(() => {
             setAgents((p) => {
               const m2 = new Map(p);
@@ -155,16 +272,19 @@ export default function AgentsPage() {
           return next;
         });
 
-        // Update global stats
+        setMarketLastAgent((prev) => {
+          const next = new Map(prev);
+          next.set(raw.marketId, name);
+          return next;
+        });
+
         setGlobalStats((prev) =>
-          prev
-            ? { ...prev, totalBets: prev.totalBets + 1 }
-            : null
+          prev ? { ...prev, totalBets: prev.totalBets + 1 } : null
         );
 
-        // Add to feed
+        const entryId = `${Date.now()}-${Math.random()}`;
         const entry: FeedEntry = {
-          id: `${Date.now()}-${Math.random()}`,
+          id: entryId,
           ts: Date.now(),
           agentName: name,
           marketId: raw.marketId,
@@ -173,6 +293,8 @@ export default function AgentsPage() {
           question,
         };
         setFeed((prev) => [entry, ...prev].slice(0, 60));
+        setNewFeedId(entryId);
+        setTimeout(() => setNewFeedId(null), 400);
       } catch {
         // noop
       }
@@ -194,6 +316,12 @@ export default function AgentsPage() {
             ? { ...m, price: raw.price, yesPool: raw.yesPool, noPool: raw.noPool }
             : m
         );
+        setPriceHistories((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(raw.marketId) ?? [];
+          next.set(raw.marketId, [...existing, { ts: Date.now(), yes: raw.price.yes, no: raw.price.no }].slice(-200));
+          return next;
+        });
       } catch {
         // noop
       }
@@ -204,11 +332,33 @@ export default function AgentsPage() {
 
   const agentList = [...agents.values()].sort((a, b) => b.bets - a.bets);
 
-  // Show known agent slots even before first bet
   const knownAgents = ["contrarian", "momentum", "random"];
-  const allAgentNames = Array.from(
-    new Set([...knownAgents, ...agentList.map((a) => a.name)])
-  );
+  const allAgentRows = Array.from(new Set([...knownAgents, ...agentList.map((a) => a.name)]))
+    .map((name) => ({ name, stats: agents.get(name), meta: agentMeta(name) }))
+    .sort((a, b) => (b.stats?.bets ?? 0) - (a.stats?.bets ?? 0));
+
+  // Bets per minute (last 60s)
+  const now = Date.now();
+  const betsPerMin = feed.filter((e) => now - e.ts < 60_000).length;
+
+  // Animated total bets
+  const displayBets = useAnimatedNumber(globalStats?.totalBets ?? 0);
+
+  // Latest bet for arena ticker
+  const latestBet = feed[0] ?? null;
+
+  // Crown: agent with most bets in last 60s
+  const recentAgentBets = new Map<string, number>();
+  feed.filter((e) => now - e.ts < 60_000).forEach((e) => {
+    recentAgentBets.set(e.agentName, (recentAgentBets.get(e.agentName) ?? 0) + 1);
+  });
+  let leader: string | null = null;
+  let leaderCount = 0;
+  recentAgentBets.forEach((count, name) => {
+    if (count > leaderCount) { leader = name; leaderCount = count; }
+  });
+
+  const marqueeText = markets.map((m) => m.question).join("  ·  ");
 
   return (
     <div className="page-shell">
@@ -223,106 +373,166 @@ export default function AgentsPage() {
       </header>
 
       <main className="battle-page">
+        {/* ── Arena Header ───────────────────────────────────────────────── */}
+        <div className="battle-arena-header">
+          {marqueeText && (
+            <div className="arena-marquee" aria-hidden="true">
+              <div className="arena-marquee__track font-mono">
+                <span>{marqueeText}</span>
+                <span aria-hidden="true">{marqueeText}</span>
+              </div>
+            </div>
+          )}
+          <div className="arena-ticker-row">
+            <div className="arena-ticker font-mono">
+              {latestBet ? (
+                <>
+                  <span style={{ color: agentMeta(latestBet.agentName).color }}>
+                    {agentMeta(latestBet.agentName).emoji} {agentMeta(latestBet.agentName).label}
+                  </span>
+                  {" just bet "}
+                  <span data-outcome={latestBet.outcome ? "yes" : "no"} className="arena-ticker__outcome">
+                    {latestBet.outcome ? "YES" : "NO"}
+                  </span>
+                  {` on ${shortQ(latestBet.question, 28)} — ${usd(latestBet.amount)}`}
+                </>
+              ) : (
+                <span className="arena-ticker__idle">Waiting for first bet…</span>
+              )}
+            </div>
+            {leader && (
+              <div className="arena-crown font-mono" style={{ color: agentMeta(leader).color }}>
+                👑 {agentMeta(leader).label}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ── Page title row ─────────────────────────────────────────────── */}
         <div className="battle-header">
           <div className="battle-header__left">
             <h1 className="battle-title font-sans">Agent Battle</h1>
-            <span
-              className="battle-status font-mono"
-              data-status={streamStatus}
-            >
-              {streamStatus === "live"       ? "● LIVE"
-               : streamStatus === "connecting" ? "○ CONNECTING"
-               : "✕ DISCONNECTED"}
+            <span className="battle-status font-mono" data-status={streamStatus}>
+              {streamStatus === "live" ? "● LIVE"
+                : streamStatus === "connecting" ? "○ CONNECTING"
+                : "✕ DISCONNECTED"}
             </span>
           </div>
-          {globalStats && (
-            <div className="battle-stats-bar font-mono">
-              <span>{globalStats.totalBets} bets</span>
-              <span className="battle-stats-bar__sep">·</span>
-              <span>{usd(globalStats.totalVolume)} vol</span>
-              <span className="battle-stats-bar__sep">·</span>
-              <span>{globalStats.activeAgents} agents</span>
-              <span className="battle-stats-bar__sep">·</span>
-              <span>{globalStats.marketsOpen} markets</span>
-            </div>
-          )}
+          <div className="battle-stats-bar font-mono">
+            <span>{displayBets} bets</span>
+            <span className="battle-stats-bar__sep">·</span>
+            <span>{usd(globalStats?.totalVolume ?? "0")} vol</span>
+            <span className="battle-stats-bar__sep">·</span>
+            <span>{globalStats?.activeAgents ?? 0} agents</span>
+            <span className="battle-stats-bar__sep">·</span>
+            <span>{betsPerMin}/min</span>
+          </div>
         </div>
 
-        {/* ── Agent cards ────────────────────────────────────────────────── */}
-        <section className="agent-cards" aria-label="Agent summary">
-          {allAgentNames.map((name) => {
-            const stats = agents.get(name);
-            const meta  = agentMeta(name);
+        {/* ── Agent Leaderboard ──────────────────────────────────────────── */}
+        <section className="agent-leaderboard" aria-label="Agent leaderboard">
+          {allAgentRows.map(({ name, stats, meta }, idx) => {
+            const rank = idx + 1;
+            const winRate = stats && stats.bets > 0
+              ? Math.round((stats.yesBets / stats.bets) * 100)
+              : null;
             return (
               <div
                 key={name}
-                className="agent-card"
+                className="leaderboard-row"
                 data-pulse={stats?.pulse ? "true" : undefined}
+                data-rank={rank <= 3 ? rank : undefined}
                 style={{ "--agent-color": meta.color } as React.CSSProperties}
               >
-                <div className="agent-card__top">
-                  <span className="agent-card__emoji">{meta.emoji}</span>
-                  <span className="agent-card__label font-mono">{meta.label}</span>
+                <div className="leaderboard-row__rank font-mono">#{rank}</div>
+                <div className="leaderboard-row__identity">
+                  <div className="leaderboard-row__name font-mono">
+                    <span className="leaderboard-row__emoji">{meta.emoji}</span>
+                    <span style={{ color: meta.color }}>{meta.label}</span>
+                  </div>
+                  <div className="leaderboard-row__desc font-sans">{meta.desc}</div>
                 </div>
-                <div className="agent-card__bets font-mono">
-                  {stats?.bets ?? 0}
-                  <span className="agent-card__bets-label">bets</span>
+                <div className="leaderboard-row__stats font-mono">
+                  <span className="leaderboard-row__bets">
+                    {stats?.bets ?? 0}<span className="leaderboard-row__unit"> bets</span>
+                  </span>
+                  <span className="leaderboard-row__sep">·</span>
+                  <span className="leaderboard-row__vol">{usd(stats?.volume ?? 0)}</span>
+                  {winRate !== null && (
+                    <>
+                      <span className="leaderboard-row__sep">·</span>
+                      <span className="leaderboard-row__winrate" data-outcome={winRate >= 50 ? "yes" : "no"}>
+                        {winRate}% YES
+                      </span>
+                    </>
+                  )}
                 </div>
-                <div className="agent-card__vol font-mono">
-                  {usd(stats?.volume ?? 0)} vol
+                <div className="leaderboard-row__sparkline">
+                  <BetSparkline bets={stats?.recentBets ?? []} />
                 </div>
                 {stats?.lastOutcome !== null && stats?.lastTs ? (
                   <div
-                    className="agent-card__last font-mono"
+                    className="leaderboard-row__last font-mono"
                     data-outcome={stats.lastOutcome ? "yes" : "no"}
                   >
-                    last: {stats.lastOutcome ? "YES ↑" : "NO ↓"}
-                    <span className="agent-card__last-time">
-                      {timeAgo(stats.lastTs)}
-                    </span>
+                    {stats.lastOutcome ? "YES ↑" : "NO ↓"}
+                    <span className="leaderboard-row__last-time">{timeAgo(stats.lastTs)}</span>
                   </div>
                 ) : (
-                  <div className="agent-card__last agent-card__last--idle font-mono">
-                    waiting…
-                  </div>
+                  <div className="leaderboard-row__last leaderboard-row__last--idle font-mono">waiting…</div>
                 )}
               </div>
             );
           })}
         </section>
 
-        {/* ── Market pools ────────────────────────────────────────────────── */}
+        {/* ── Market Pressure Panels ─────────────────────────────────────── */}
         <section className="battle-markets" aria-label="Market pools">
           <h2 className="battle-section-title font-sans">Markets</h2>
           {markets.map((m) => {
-            const yesPct = Math.round((m.price?.yes ?? 0.5) * 100);
-            const noPct  = 100 - yesPct;
+            const yesPct      = Math.round((m.price?.yes ?? 0.5) * 100);
+            const noPct       = 100 - yesPct;
+            const history     = priceHistories.get(m.id) ?? [];
+            const lastAgent   = marketLastAgent.get(m.id);
+            const lastAgMeta  = lastAgent ? agentMeta(lastAgent) : null;
+            const yesPoolUsd  = m.yesPool ? `$${(Number(m.yesPool) / 1_000_000).toFixed(0)}` : null;
+            const noPoolUsd   = m.noPool  ? `$${(Number(m.noPool)  / 1_000_000).toFixed(0)}` : null;
             return (
-              <div key={m.id} className="pool-row">
-                <div className="pool-row__question font-sans">{m.question}</div>
-                <div className="pool-row__bars">
+              <div key={m.id} className="market-panel">
+                <div className="market-panel__header">
+                  <div className="market-panel__question font-sans">{m.question}</div>
+                  <div className="market-panel__meta">
+                    {lastAgMeta && (
+                      <span className="market-panel__agent-dot" style={{ color: lastAgMeta.color }}
+                        title={`Last bet: ${lastAgMeta.label}`}>
+                        {lastAgMeta.emoji}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="market-panel__bars">
                   <div className="pool-bar pool-bar--yes">
-                    <div
-                      className="pool-bar__fill"
-                      style={{ width: `${yesPct}%` }}
-                    />
-                    <span className="pool-bar__label font-mono">YES {yesPct}%</span>
+                    <div className="pool-bar__fill" style={{ width: `${yesPct}%` }} />
+                    <span className="pool-bar__label font-mono">
+                      YES {yesPct}%{yesPoolUsd ? ` · ${yesPoolUsd}` : ""}
+                    </span>
                   </div>
                   <div className="pool-bar pool-bar--no">
-                    <div
-                      className="pool-bar__fill"
-                      style={{ width: `${noPct}%` }}
-                    />
-                    <span className="pool-bar__label font-mono">NO {noPct}%</span>
+                    <div className="pool-bar__fill" style={{ width: `${noPct}%` }} />
+                    <span className="pool-bar__label font-mono">
+                      NO {noPct}%{noPoolUsd ? ` · ${noPoolUsd}` : ""}
+                    </span>
                   </div>
+                </div>
+                <div className="market-panel__sparkline">
+                  <PriceSparkline history={history} width={120} height={36} />
                 </div>
               </div>
             );
           })}
         </section>
 
-        {/* ── Live feed ───────────────────────────────────────────────────── */}
+        {/* ── Live Feed ───────────────────────────────────────────────────── */}
         <section className="battle-feed" aria-label="Live bet feed" aria-live="polite">
           <h2 className="battle-section-title font-sans">
             Live Feed
@@ -331,38 +541,34 @@ export default function AgentsPage() {
             )}
           </h2>
           {feed.length === 0 ? (
-            <p className="battle-feed__empty font-mono">
-              Waiting for bets…
-            </p>
+            <p className="battle-feed__empty font-mono">Waiting for bets…</p>
           ) : (
             <div className="battle-feed__list" role="log">
               {feed.map((entry) => {
-                const meta = agentMeta(entry.agentName);
+                const meta   = agentMeta(entry.agentName);
+                const mColor = marketColor(entry.marketId);
                 return (
-                  <div key={entry.id} className="feed-row">
+                  <div
+                    key={entry.id}
+                    className={`feed-row${entry.id === newFeedId ? " feed-row--new" : ""}`}
+                  >
                     <span className="feed-row__time font-mono">
                       {new Date(entry.ts).toLocaleTimeString("en-US", {
                         hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
                       })}
                     </span>
-                    <span
-                      className="feed-row__agent font-mono"
-                      style={{ color: meta.color }}
-                    >
+                    <span className="feed-row__agent font-mono" style={{ color: meta.color }}>
                       {meta.emoji} {meta.label}
                     </span>
-                    <span
-                      className="feed-row__outcome font-mono"
-                      data-outcome={entry.outcome ? "yes" : "no"}
-                    >
+                    <span className="feed-row__outcome font-mono" data-outcome={entry.outcome ? "yes" : "no"}>
                       {entry.outcome ? "YES" : "NO "}
                     </span>
-                    <span className="feed-row__amount font-mono">
-                      {usd(entry.amount)}
+                    <span className="feed-row__amount font-mono">{usd(entry.amount)}</span>
+                    <span className="feed-row__market-chip font-mono"
+                      style={{ borderColor: mColor, color: mColor }}>
+                      #{entry.marketId}
                     </span>
-                    <span className="feed-row__question font-sans">
-                      {shortQ(entry.question)}
-                    </span>
+                    <span className="feed-row__question font-sans">{shortQ(entry.question)}</span>
                   </div>
                 );
               })}
