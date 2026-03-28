@@ -11,7 +11,7 @@ async function loadXmtp(): Promise<any> {
   return import("@xmtp/node-sdk" as string) as Promise<any>;
 }
 
-// ─── Broadcast payload types ─────────────────────────────────────────────────
+// ─── Broadcast payload types ────────────────────────────────────────────────
 
 export interface BetBroadcastData {
   marketId: number;
@@ -35,13 +35,13 @@ type XmtpEnvelope =
   | { type: "bet"; data: BetBroadcastData; timestamp: string }
   | { type: "cap_hit"; data: CapHitBroadcastData; timestamp: string };
 
-// ─── XMTP client state (opaque type to avoid static ESM import) ───────────────
+// ─── XMTP client state (opaque type to avoid static ESM import) ─────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let xmtpClient: any = null;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getClient(): Promise<any> {
+export async function getClient(): Promise<any> {
   if (xmtpClient) return xmtpClient;
 
   const privateKey = process.env.AGENT_PRIVATE_KEY;
@@ -94,7 +94,7 @@ async function getClient(): Promise<any> {
   }
 }
 
-// ─── Internal send helper ─────────────────────────────────────────────────────
+// ─── Internal send helper ───────────────────────────────────────────────
 
 async function send(envelope: XmtpEnvelope): Promise<void> {
   const client = await getClient();
@@ -118,7 +118,7 @@ async function send(envelope: XmtpEnvelope): Promise<void> {
   }
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
  * Broadcast a successful bet placement to the XMTP agent-chat group.
