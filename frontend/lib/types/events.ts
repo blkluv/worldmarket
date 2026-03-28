@@ -4,6 +4,7 @@ export interface BetEventPayload {
   amount: string;   // USDC base units (6 dec)
   wallet: string;
   txHash: string;
+  agentName?: string | null;
 }
 
 export interface CapHitEventPayload {
@@ -12,6 +13,14 @@ export interface CapHitEventPayload {
   humanExposure: string;
   humanCap: string;
   requestedAmount: string;
+}
+
+export interface PriceUpdatePayload {
+  marketId: number;
+  price: { yes: number; no: number };
+  yesPool: string;
+  noPool: string;
+  ts: number;
 }
 
 export function isBetEvent(v: unknown): v is BetEventPayload {
@@ -24,6 +33,12 @@ export function isBetEvent(v: unknown): v is BetEventPayload {
     typeof o.wallet === "string" &&
     typeof o.txHash === "string"
   );
+}
+
+export function isPriceUpdateEvent(v: unknown): v is PriceUpdatePayload {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.marketId === "number" && typeof o.price === "object";
 }
 
 export function isCapHitEvent(v: unknown): v is CapHitEventPayload {

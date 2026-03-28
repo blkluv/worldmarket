@@ -91,11 +91,13 @@ async function simulate(marketId: number, outcome: boolean, amount: string = BET
   return json.data ?? null;
 }
 
+const AGENT_NAME = process.env.AGENT_STRATEGY ?? "contrarian";
+
 export async function placeBet(marketId: number, outcome: boolean, amount: string = BET_AMOUNT): Promise<BetResponse> {
   const res = await agentFetch(`${API_URL}/markets/${marketId}/bet`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ marketId, outcome, amount, wallet: walletAddress }),
+    body: JSON.stringify({ marketId, outcome, amount, wallet: walletAddress, agentName: AGENT_NAME }),
   });
   const json = (await res.json()) as BetResponse;
   return json;

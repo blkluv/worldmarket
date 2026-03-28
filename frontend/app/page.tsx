@@ -39,6 +39,9 @@ export default async function HomePage() {
           <Link href="/register" className="nav-link">
             Register
           </Link>
+          <Link href="/agents" className="nav-link">
+            Agent Battle
+          </Link>
           <Link href="/chat" className="nav-link">
             Agent Chat
           </Link>
