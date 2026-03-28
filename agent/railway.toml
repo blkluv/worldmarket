@@ -2,7 +2,6 @@
 builder = "nixpacks"
 buildCommand = "npm install && npm run build"
 rootDirectory = "agent"
-watchPaths = ["agent/**"]
 
 [deploy]
 # Worker — no HTTP port, just runs the trading loop

@@ -2,7 +2,6 @@
 builder = "nixpacks"
 buildCommand = "npm install && npm run build"
 rootDirectory = "frontend"
-watchPaths = ["frontend/**"]
 
 [deploy]
 startCommand = "npm start"

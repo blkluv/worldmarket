@@ -2,7 +2,6 @@
 builder = "nixpacks"
 buildCommand = "npm install && npm run build"
 rootDirectory = "api"
-watchPaths = ["api/**"]
 
 [deploy]
 startCommand = "npm start"
