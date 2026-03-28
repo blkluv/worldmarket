@@ -13,6 +13,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@tanstack/react-query": "^5.0.0",
     "@wagmi/connectors": "^8.0.0",
+    "@walletconnect/modal": "^2.7.0",
     "@worldcoin/idkit": "^4.0.11",
     "@xmtp/browser-sdk": "^7.0.0",
     "dotenv": "^16.0.0",

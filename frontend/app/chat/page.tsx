@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
-import { AgentChat } from "@/components/AgentChat";
+import { AgentChatClient } from "@/components/AgentChatClient";
 
 const XMTP_GROUP_ID = process.env.NEXT_PUBLIC_XMTP_GROUP_ID ?? "";
 
@@ -28,7 +28,7 @@ export default function ChatPage() {
           </p>
         </div>
 
-        <AgentChat groupId={XMTP_GROUP_ID} />
+        <AgentChatClient groupId={XMTP_GROUP_ID} />
       </main>
     </div>
   );

@@ -156,7 +156,7 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
                 parsed.push({
                   id: msg.id,
                   receivedAt: msg.sentAt.toISOString(),
-                  envelope: { type: "user_command", text: msg.content },
+                  envelope: { type: "user_command" as const, text: msg.content },
                 });
               }
             } catch {
@@ -164,7 +164,7 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
               parsed.push({
                 id: msg.id,
                 receivedAt: msg.sentAt.toISOString(),
-                envelope: { type: "user_command", text: msg.content },
+                envelope: { type: "user_command" as const, text: msg.content },
               });
             }
           }
@@ -197,7 +197,7 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
                 {
                   id: msg.id,
                   receivedAt: msg.sentAt.toISOString(),
-                  envelope: { type: "user_command", text: msg.content as string },
+                  envelope: { type: "user_command" as const, text: msg.content as string },
                 },
                 ...prev
               ].slice(0, 100));
@@ -207,7 +207,7 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
               {
                 id: msg.id,
                 receivedAt: msg.sentAt.toISOString(),
-                envelope: { type: "user_command", text: msg.content as string },
+                envelope: { type: "user_command" as const, text: msg.content as string },
               },
               ...prev
             ].slice(0, 100));
