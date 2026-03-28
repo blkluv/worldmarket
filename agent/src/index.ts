@@ -4,6 +4,8 @@ import { walletAddress } from "./wallet";
 import { shouldBet } from "./strategy";
 import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast";
 
+import { startCommandListener } from "./xmtpListener";
+
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const BET_AMOUNT = "1000000"; // $1 USDC (6 decimals)
 const LOOP_DELAY_MS = 5000;
@@ -13,18 +15,18 @@ function ts(): string {
   return new Date().toISOString();
 }
 
-async function delay(ms: number): Promise<void> {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-interface Market {
+export interface Market {
   id: number;
   question: string;
   status: string;
   price: { yes: number; no: number };
 }
 
-interface BetResponse {
+export interface BetResponse {
   data?: {
     txHash: string;
     marketId: number;
@@ -64,7 +66,7 @@ interface MarketsResponse {
   data?: Market[];
 }
 
-async function getMarkets(): Promise<Market[]> {
+export async function getMarkets(): Promise<Market[]> {
   const res = await agentFetch(`${API_URL}/markets`);
   if (!res.ok) throw new Error(`GET /markets failed: ${res.status}`);
   const json = (await res.json()) as MarketsResponse;
@@ -78,22 +80,22 @@ async function getPrice(marketId: number): Promise<{ yes: number; no: number }> 
   return json.data?.price ?? { yes: 0.5, no: 0.5 };
 }
 
-async function simulate(marketId: number, outcome: boolean): Promise<SimulateResponse["data"] | null> {
+async function simulate(marketId: number, outcome: boolean, amount: string = BET_AMOUNT): Promise<SimulateResponse["data"] | null> {
   const res = await agentFetch(`${API_URL}/markets/${marketId}/simulate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ outcome, amount: BET_AMOUNT }),
+    body: JSON.stringify({ outcome, amount }),
   });
   if (!res.ok) return null;
   const json = (await res.json()) as SimulateResponse;
   return json.data ?? null;
 }
 
-async function placeBet(marketId: number, outcome: boolean): Promise<BetResponse> {
+export async function placeBet(marketId: number, outcome: boolean, amount: string = BET_AMOUNT): Promise<BetResponse> {
   const res = await agentFetch(`${API_URL}/markets/${marketId}/bet`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ marketId, outcome, amount: BET_AMOUNT, wallet: walletAddress }),
+    body: JSON.stringify({ marketId, outcome, amount, wallet: walletAddress }),
   });
   const json = (await res.json()) as BetResponse;
   return json;
@@ -102,6 +104,12 @@ async function placeBet(marketId: number, outcome: boolean): Promise<BetResponse
 async function run(): Promise<void> {
   console.log(`[${ts()}] 🤖 Agent starting — wallet: ${walletAddress}`);
   console.log(`[${ts()}] 📡 API: ${API_URL}`);
+
+  if (process.env.XMTP_ENABLED === "true") {
+    startCommandListener().catch((err) => {
+      console.error(`[${ts()}] ❌ XMTP Listener failed:`, err);
+    });
+  }
 
   // Discover markets
   let markets: Market[];

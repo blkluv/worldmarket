@@ -51,9 +51,11 @@ function shortHash(hash: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export interface AgentChatProps {
+interface AgentChatProps {
   /** XMTP group ID to subscribe to — set via NEXT_PUBLIC_XMTP_GROUP_ID */
   groupId: string;
+  /** Agent XMTP address to send commands to — set via NEXT_PUBLIC_AGENT_XMTP_ADDRESS */
+  agentAddress?: string;
 }
 
 type ChatStatus =
@@ -66,16 +68,20 @@ type ChatStatus =
 interface ChatEntry {
   id: string;
   receivedAt: string;
-  envelope: AgentEnvelope;
+  envelope: AgentEnvelope | { type: "user_command"; text: string };
 }
 
-export function AgentChat({ groupId }: AgentChatProps) {
+export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [command, setCommand] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  
+  const clientRef = useRef<Client | null>(null);
   const streamCloserRef = useRef<(() => void) | null>(null);
 
   // Tear down the previous stream whenever the wallet changes
@@ -83,6 +89,7 @@ export function AgentChat({ groupId }: AgentChatProps) {
     return () => {
       streamCloserRef.current?.();
       streamCloserRef.current = null;
+      clientRef.current = null;
     };
   }, [address]);
 
@@ -115,6 +122,7 @@ export function AgentChat({ groupId }: AgentChatProps) {
         // Cast needed: TypeScript struggles with the union in ClientOptions
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client = await Client.create(signer, { env: xmtpEnv } as any);
+        clientRef.current = client;
 
         if (cancelled) return;
 
@@ -137,14 +145,27 @@ export function AgentChat({ groupId }: AgentChatProps) {
             if (typeof msg.content !== "string") continue;
             try {
               const raw = JSON.parse(msg.content) as unknown;
-              if (!isAgentEnvelope(raw)) continue;
+              if (isAgentEnvelope(raw)) {
+                parsed.push({
+                  id: msg.id,
+                  receivedAt: msg.sentAt.toISOString(),
+                  envelope: raw,
+                });
+              } else {
+                // Check if it's a user command (plain text not matching agent envelope)
+                parsed.push({
+                  id: msg.id,
+                  receivedAt: msg.sentAt.toISOString(),
+                  envelope: { type: "user_command", text: msg.content },
+                });
+              }
+            } catch {
+              // If not JSON, it's likely a plain text user command
               parsed.push({
                 id: msg.id,
                 receivedAt: msg.sentAt.toISOString(),
-                envelope: raw,
+                envelope: { type: "user_command", text: msg.content },
               });
-            } catch {
-              // skip malformed
             }
           }
           setEntries(parsed.reverse().slice(0, 100));
@@ -164,15 +185,32 @@ export function AgentChat({ groupId }: AgentChatProps) {
           if (typeof msg.content !== "string") continue;
           try {
             const raw = JSON.parse(msg.content) as unknown;
-            if (!isAgentEnvelope(raw)) continue;
-            const entry: ChatEntry = {
-              id: msg.id,
-              receivedAt: msg.sentAt.toISOString(),
-              envelope: raw,
-            };
-            setEntries((prev) => [entry, ...prev].slice(0, 100));
+            if (isAgentEnvelope(raw)) {
+              const entry: ChatEntry = {
+                id: msg.id,
+                receivedAt: msg.sentAt.toISOString(),
+                envelope: raw,
+              };
+              setEntries((prev) => [entry, ...prev].slice(0, 100));
+            } else {
+              setEntries((prev) => [
+                {
+                  id: msg.id,
+                  receivedAt: msg.sentAt.toISOString(),
+                  envelope: { type: "user_command", text: msg.content as string },
+                },
+                ...prev
+              ].slice(0, 100));
+            }
           } catch {
-            // skip malformed
+            setEntries((prev) => [
+              {
+                id: msg.id,
+                receivedAt: msg.sentAt.toISOString(),
+                envelope: { type: "user_command", text: msg.content as string },
+              },
+              ...prev
+            ].slice(0, 100));
           }
         }
       } catch (err) {
@@ -191,6 +229,27 @@ export function AgentChat({ groupId }: AgentChatProps) {
       streamCloserRef.current = null;
     };
   }, [address, isConnected, groupId, signMessageAsync]);
+
+  const handleSendCommand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!command.trim() || !clientRef.current || !groupId || isSending) return;
+
+    setIsSending(true);
+    try {
+      const conversation = await clientRef.current.conversations.getConversationById(groupId);
+      if (conversation) {
+        await conversation.sendText(command);
+        setCommand("");
+      } else {
+        setErrorMsg("Could not find conversation to send command.");
+      }
+    } catch (err) {
+      console.error("Failed to send command:", err);
+      setErrorMsg("Failed to send command.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -316,9 +375,35 @@ export function AgentChat({ groupId }: AgentChatProps) {
                 {usdAmount(entry.envelope.data.humanCap)}
               </span>
             )}
+
+            {entry.envelope.type === "user_command" && (
+              <span className="agent-chat__body agent-chat__body--user font-mono">
+                💬 <span className="agent-chat__user-text">{entry.envelope.text}</span>
+              </span>
+            )}
           </div>
         ))}
       </div>
+
+      {status === "live" && (
+        <form className="agent-chat__footer" onSubmit={handleSendCommand}>
+          <input
+            type="text"
+            className="agent-chat__input font-mono"
+            placeholder="Type a command (e.g. 'bet $5 on yes for market 0')..."
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            disabled={isSending}
+          />
+          <button 
+            type="submit" 
+            className="agent-chat__send-btn font-mono"
+            disabled={isSending || !command.trim()}
+          >
+            {isSending ? "..." : "SEND"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
