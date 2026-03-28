@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAccount, useConnect, useWriteContract } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { WorldIDButton } from "@/components/WorldIDButton";
 import Link from "next/link";
 
@@ -34,7 +33,7 @@ import { type IDKitResult } from "@worldcoin/idkit";
 
 export default function RegisterPage() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const { writeContract, isPending, isSuccess, error } = useWriteContract();
 
   const [humanRegistered, setHumanRegistered] = useState(false);
@@ -42,8 +41,9 @@ export default function RegisterPage() {
   const [agentRegistered, setAgentRegistered] = useState(false);
   const [agentError, setAgentError] = useState("");
 
-  function handleConnectWallet() {
-    connect({ connector: injected() });
+  function handleConnectWallet(connectorId: string) {
+    const connector = connectors.find((c) => c.id === connectorId);
+    if (connector) connect({ connector });
   }
 
   async function handleVerify(result: IDKitResult) {
@@ -121,12 +121,24 @@ export default function RegisterPage() {
                 ✓ {address}
               </p>
             ) : (
-              <button
-                className="register-btn"
-                onClick={handleConnectWallet}
-              >
-                Connect wallet
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {connectors.find((c) => c.id === "injected") && (
+                  <button
+                    className="register-btn"
+                    onClick={() => handleConnectWallet("injected")}
+                  >
+                    Connect MetaMask
+                  </button>
+                )}
+                {connectors.find((c) => c.id === "walletConnect") && (
+                  <button
+                    className="register-btn"
+                    onClick={() => handleConnectWallet("walletConnect")}
+                  >
+                    WalletConnect
+                  </button>
+                )}
+              </div>
             )}
           </section>
 
