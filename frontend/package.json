@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
     "@fontsource-variable/syne": "^5.2.7",
     "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@tailwindcss/postcss": "^4.2.2",
     "@tanstack/react-query": "^5.0.0",
     "@wagmi/connectors": "^8.0.0",
@@ -18,6 +20,7 @@
     "@xmtp/browser-sdk": "^7.0.0",
     "dotenv": "^16.0.0",
     "next": "15.5.14",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.2.2",

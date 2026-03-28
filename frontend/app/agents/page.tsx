@@ -20,6 +20,7 @@ interface AgentStats {
   bets: number;
   yesBets: number;
   recentBets: boolean[];
+  betTimestamps: number[];
   volume: number;
   lastOutcome: boolean | null;
   lastTs: number | null;
@@ -116,26 +117,47 @@ function PriceSparkline({ history, width = 120, height = 36 }: {
   );
 }
 
-// Agent bet-outcome sparkline (dots: YES=green, NO=red)
-function BetSparkline({ bets, width = 80, height = 28 }: {
-  bets: boolean[];
+// Volume sparkline: bets-per-minute bar chart
+function VolumeSparkline({
+  timestamps,
+  color = "var(--color-accent)",
+  width = 60,
+  height = 24,
+  buckets = 10,
+}: {
+  timestamps: number[];
+  color?: string;
   width?: number;
   height?: number;
+  buckets?: number;
 }) {
-  const sliced = bets.slice(-20);
-  if (sliced.length === 0) return <svg width={width} height={height} />;
-  const n = sliced.length;
-  const cy = height / 2;
-  const r = 3;
-  const pad = r + 1;
+  const now = Date.now();
+  const windowMs = buckets * 60_000;
+  const bucketMs = 60_000;
+  const counts = Array.from({ length: buckets }, (_, i) => {
+    const bucketStart = now - windowMs + i * bucketMs;
+    const bucketEnd   = bucketStart + bucketMs;
+    return timestamps.filter((t) => t >= bucketStart && t < bucketEnd).length;
+  });
+  const maxCount = Math.max(...counts, 1);
+  const barW = (width - (buckets - 1)) / buckets;
+  const pad = 1;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {sliced.map((outcome, i) => {
-        const cx = pad + (i / Math.max(n - 1, 1)) * (width - pad * 2);
+      {counts.map((c, i) => {
+        const barH = Math.max(c / maxCount * (height - pad * 2), c > 0 ? 2 : 0);
+        const x = i * (barW + 1);
+        const y = height - pad - barH;
         return (
-          <circle key={i} cx={cx.toFixed(1)} cy={cy} r={r}
-            fill={outcome ? "var(--color-yes)" : "var(--color-danger)"}
-            opacity={0.55 + 0.45 * (i / n)} />
+          <rect
+            key={i}
+            x={x.toFixed(1)}
+            y={y.toFixed(1)}
+            width={barW.toFixed(1)}
+            height={barH.toFixed(1)}
+            fill={color}
+            opacity={0.5 + 0.5 * (i / (buckets - 1))}
+          />
         );
       })}
     </svg>
@@ -149,6 +171,141 @@ const MARKET_COLORS = [
   "oklch(65% 0.16 155)",
 ];
 function marketColor(id: number) { return MARKET_COLORS[id % MARKET_COLORS.length]; }
+
+// Per-market volume buckets from in-memory feed
+function getMarketVolumeBuckets(
+  feed: FeedEntry[],
+  marketId: number,
+  buckets: number = 10
+): Array<{ yesVol: number; noVol: number }> {
+  const now = Date.now();
+  const bucketMs = 60_000;
+  const windowMs = buckets * bucketMs;
+  const filtered = feed.filter((e) => e.marketId === marketId && now - e.ts < windowMs);
+  return Array.from({ length: buckets }, (_, i) => {
+    const bucketStart = now - windowMs + i * bucketMs;
+    const bucketEnd   = bucketStart + bucketMs;
+    const inBucket    = filtered.filter((e) => e.ts >= bucketStart && e.ts < bucketEnd);
+    return {
+      yesVol: inBucket.filter((e) => e.outcome).reduce((s, e) => s + Number(e.amount), 0),
+      noVol:  inBucket.filter((e) => !e.outcome).reduce((s, e) => s + Number(e.amount), 0),
+    };
+  });
+}
+
+// DualChart: price line (top panel) + stacked YES/NO volume bars (bottom panel)
+function DualChart({
+  history,
+  volumeBuckets,
+  width = 280,
+}: {
+  history: PricePoint[];
+  volumeBuckets: Array<{ yesVol: number; noVol: number }>;
+  width?: number;
+}) {
+  const HEIGHT   = 80;
+  const PRICE_H  = 50;
+  const SEP_Y    = PRICE_H + 1;
+  const VOL_TOP  = SEP_Y + 2;
+  const VOL_H    = HEIGHT - VOL_TOP - 2;
+  const PAD      = 2;
+  const buckets  = volumeBuckets.length;
+  const barW     = (width - (buckets - 1)) / buckets;
+
+  const yesValues   = history.map((p) => p.yes);
+  const pricePoints = (() => {
+    if (history.length < 2) return null;
+    const minV = Math.min(...yesValues);
+    const maxV = Math.max(...yesValues);
+    const range = maxV - minV || 0.01;
+    return history.map((p, i) => {
+      const x = PAD + (i / (history.length - 1)) * (width - PAD * 2);
+      const y = PAD + (1 - (p.yes - minV) / range) * (PRICE_H - PAD * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+  })();
+
+  const lastYes   = yesValues.length > 0 ? yesValues[yesValues.length - 1] : 0.5;
+  const lineColor = lastYes >= 0.5 ? "var(--color-yes)" : "var(--color-danger)";
+  const maxVol    = Math.max(...volumeBuckets.map((b) => b.yesVol + b.noVol), 1);
+
+  return (
+    <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} style={{ display: "block" }}>
+      {pricePoints ? (
+        <>
+          <polyline
+            points={pricePoints}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+          />
+          <text x={width - 2} y={PAD + 8} textAnchor="end" fontSize="7"
+            fill="var(--color-muted)" fontFamily="var(--font-mono)">
+            {Math.round(lastYes * 100)}%
+          </text>
+        </>
+      ) : (
+        <text x={width / 2} y={PRICE_H / 2 + 4} textAnchor="middle" fontSize="8"
+          fill="var(--color-muted)" fontFamily="var(--font-mono)">
+          warming up…
+        </text>
+      )}
+      <line x1={0} y1={SEP_Y} x2={width} y2={SEP_Y} stroke="var(--color-border)" strokeWidth="1" />
+      {volumeBuckets.map((b, i) => {
+        const totalH  = ((b.yesVol + b.noVol) / maxVol) * (VOL_H - 2);
+        const yesH    = totalH > 0 ? (b.yesVol / (b.yesVol + b.noVol)) * totalH : 0;
+        const noH     = totalH - yesH;
+        const x       = i * (barW + 1);
+        const baseY   = HEIGHT - 2;
+        const opacity = 0.45 + 0.55 * (i / (buckets - 1));
+        return (
+          <g key={i} opacity={opacity}>
+            {yesH > 0 && (
+              <rect x={x.toFixed(1)} y={(baseY - yesH).toFixed(1)}
+                width={barW.toFixed(1)} height={yesH.toFixed(1)}
+                fill="var(--color-yes)" opacity={0.7} />
+            )}
+            {noH > 0 && (
+              <rect x={x.toFixed(1)} y={(baseY - yesH - noH).toFixed(1)}
+                width={barW.toFixed(1)} height={noH.toFixed(1)}
+                fill="var(--color-danger)" opacity={0.7} />
+            )}
+          </g>
+        );
+      })}
+      <text x={width - 2} y={HEIGHT - 3} textAnchor="end" fontSize="6"
+        fill="var(--color-muted)" fontFamily="var(--font-mono)">
+        VOL
+      </text>
+    </svg>
+  );
+}
+
+// Median bet amount helper
+function getMedianAmount(feed: FeedEntry[]): number {
+  const amounts = feed.slice(0, 20).map((e) => Number(e.amount)).filter((n) => n > 0);
+  if (amounts.length === 0) return 1_000_000;
+  const sorted = [...amounts].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+// Per-trade size indicator bar
+function TradeVolBar({ amount, median, outcome }: {
+  amount: string;
+  median: number;
+  outcome: boolean;
+}) {
+  const normalized = Math.min(Number(amount) / median, 3);
+  const height     = Math.max(Math.round(normalized * 16), 2);
+  return (
+    <svg width={6} height={20} viewBox="0 0 6 20" style={{ display: "block", alignSelf: "center" }}>
+      <rect x={0} y={20 - height} width={6} height={height}
+        fill={outcome ? "var(--color-yes)" : "var(--color-danger)"}
+        opacity={0.75} />
+    </svg>
+  );
+}
 
 // Animated count-up hook
 function useAnimatedNumber(target: number, duration = 300): number {
@@ -247,14 +404,17 @@ export default function AgentsPage() {
           const next = new Map(prev);
           const existing = next.get(name) ?? {
             name, bets: 0, yesBets: 0, recentBets: [],
+            betTimestamps: [],
             volume: 0, lastOutcome: null, lastTs: null, lastMarketId: null, pulse: false,
           };
           const updatedRecent = [...existing.recentBets, raw.outcome].slice(-20);
+          const updatedTimestamps = [...existing.betTimestamps, Date.now()].slice(-120);
           next.set(name, {
             ...existing,
             bets: existing.bets + 1,
             yesBets: existing.yesBets + (raw.outcome ? 1 : 0),
             recentBets: updatedRecent,
+            betTimestamps: updatedTimestamps,
             volume: existing.volume + Number(raw.amount),
             lastOutcome: raw.outcome,
             lastTs: Date.now(),
@@ -406,9 +566,22 @@ export default function AgentsPage() {
               </div>
             )}
           </div>
+          <div className="arena-market-prices font-mono">
+            {markets.map((m) => {
+              const yes = Math.round((m.price?.yes ?? 0.5) * 100);
+              const dir = yes > 50 ? "up" : yes < 50 ? "down" : "flat";
+              return (
+                <div key={m.id} className="arena-price-item">
+                  <span className="arena-price-item__label">#{m.id}</span>
+                  <span className={`arena-price-item__val arena-price-item__val--${dir}`}>{yes}% YES</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── Page title row ─────────────────────────────────────────────── */}
+        <aside className="battle-side">
         <div className="battle-header">
           <div className="battle-header__left">
             <h1 className="battle-title font-sans">Agent Battle</h1>
@@ -451,41 +624,37 @@ export default function AgentsPage() {
                     <span style={{ color: meta.color }}>{meta.label}</span>
                   </div>
                   <div className="leaderboard-row__desc font-sans">{meta.desc}</div>
-                </div>
-                <div className="leaderboard-row__stats font-mono">
-                  <span className="leaderboard-row__bets">
-                    {stats?.bets ?? 0}<span className="leaderboard-row__unit"> bets</span>
-                  </span>
-                  <span className="leaderboard-row__sep">·</span>
-                  <span className="leaderboard-row__vol">{usd(stats?.volume ?? 0)}</span>
-                  {winRate !== null && (
-                    <>
-                      <span className="leaderboard-row__sep">·</span>
-                      <span className="leaderboard-row__winrate" data-outcome={winRate >= 50 ? "yes" : "no"}>
-                        {winRate}% YES
-                      </span>
-                    </>
-                  )}
+                  <div className="leaderboard-row__stats font-mono">
+                    <span className="leaderboard-row__bets">
+                      {stats?.bets ?? 0}<span className="leaderboard-row__unit"> bets</span>
+                    </span>
+                    <span className="leaderboard-row__sep">·</span>
+                    <span className="leaderboard-row__vol">{usd(stats?.volume ?? 0)}</span>
+                    {winRate !== null && (
+                      <>
+                        <span className="leaderboard-row__sep">·</span>
+                        <span className="leaderboard-row__winrate" data-outcome={winRate >= 50 ? "yes" : "no"}>
+                          {winRate}% YES
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="leaderboard-row__sparkline">
-                  <BetSparkline bets={stats?.recentBets ?? []} />
+                  <VolumeSparkline
+                    timestamps={stats?.betTimestamps ?? []}
+                    color={meta.color}
+                    width={60}
+                    height={24}
+                  />
                 </div>
-                {stats?.lastOutcome !== null && stats?.lastTs ? (
-                  <div
-                    className="leaderboard-row__last font-mono"
-                    data-outcome={stats.lastOutcome ? "yes" : "no"}
-                  >
-                    {stats.lastOutcome ? "YES ↑" : "NO ↓"}
-                    <span className="leaderboard-row__last-time">{timeAgo(stats.lastTs)}</span>
-                  </div>
-                ) : (
-                  <div className="leaderboard-row__last leaderboard-row__last--idle font-mono">waiting…</div>
-                )}
               </div>
             );
           })}
         </section>
+        </aside>
 
+        <div className="battle-main">
         {/* ── Market Pressure Panels ─────────────────────────────────────── */}
         <section className="battle-markets" aria-label="Market pools">
           <h2 className="battle-section-title font-sans">Markets</h2>
@@ -524,18 +693,22 @@ export default function AgentsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="market-panel__sparkline">
-                  <PriceSparkline history={history} width={120} height={36} />
+                <div className="market-panel__chart">
+                  <DualChart
+                    history={history}
+                    volumeBuckets={getMarketVolumeBuckets(feed, m.id)}
+                    width={280}
+                  />
                 </div>
               </div>
             );
           })}
         </section>
 
-        {/* ── Live Feed ───────────────────────────────────────────────────── */}
+        {/* ── Trade Tape ──────────────────────────────────────────────────── */}
         <section className="battle-feed" aria-label="Live bet feed" aria-live="polite">
-          <h2 className="battle-section-title font-sans">
-            Live Feed
+          <h2 className="battle-section-title font-mono">
+            Trade Tape
             {feed.length > 0 && (
               <span className="battle-feed__count font-mono">{feed.length}</span>
             )}
@@ -544,37 +717,43 @@ export default function AgentsPage() {
             <p className="battle-feed__empty font-mono">Waiting for bets…</p>
           ) : (
             <div className="battle-feed__list" role="log">
-              {feed.map((entry) => {
-                const meta   = agentMeta(entry.agentName);
-                const mColor = marketColor(entry.marketId);
-                return (
-                  <div
-                    key={entry.id}
-                    className={`feed-row${entry.id === newFeedId ? " feed-row--new" : ""}`}
-                  >
-                    <span className="feed-row__time font-mono">
-                      {new Date(entry.ts).toLocaleTimeString("en-US", {
-                        hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
-                      })}
-                    </span>
-                    <span className="feed-row__agent font-mono" style={{ color: meta.color }}>
-                      {meta.emoji} {meta.label}
-                    </span>
-                    <span className="feed-row__outcome font-mono" data-outcome={entry.outcome ? "yes" : "no"}>
-                      {entry.outcome ? "YES" : "NO "}
-                    </span>
-                    <span className="feed-row__amount font-mono">{usd(entry.amount)}</span>
-                    <span className="feed-row__market-chip font-mono"
-                      style={{ borderColor: mColor, color: mColor }}>
-                      #{entry.marketId}
-                    </span>
-                    <span className="feed-row__question font-sans">{shortQ(entry.question)}</span>
-                  </div>
-                );
-              })}
+              {(() => {
+                const medianAmount = getMedianAmount(feed);
+                return feed.map((entry, index) => {
+                  const meta   = agentMeta(entry.agentName);
+                  const mColor = marketColor(entry.marketId);
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`feed-row${entry.id === newFeedId ? " feed-row--new" : ""}`}
+                      style={{ opacity: Math.max(0.35, 1 - index * 0.045) }}
+                    >
+                      <span className="feed-row__time font-mono">
+                        {new Date(entry.ts).toLocaleTimeString("en-US", {
+                          hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit",
+                        })}
+                      </span>
+                      <span className="feed-row__agent font-mono" style={{ color: meta.color }}>
+                        {meta.emoji} {meta.label}
+                      </span>
+                      <span className="feed-row__outcome font-mono" data-outcome={entry.outcome ? "yes" : "no"}>
+                        {entry.outcome ? "YES" : "NO "}
+                      </span>
+                      <span className="feed-row__amount font-mono">{usd(entry.amount)}</span>
+                      <TradeVolBar amount={entry.amount} median={medianAmount} outcome={entry.outcome} />
+                      <span className="feed-row__market-chip font-mono"
+                        style={{ borderColor: mColor, color: mColor }}>
+                        #{entry.marketId}
+                      </span>
+                      <span className="feed-row__question font-sans">{shortQ(entry.question)}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </section>
+        </div>{/* battle-main */}
       </main>
     </div>
   );

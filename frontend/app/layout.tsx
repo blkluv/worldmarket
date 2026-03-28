@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/600.css";
+import "@fontsource-variable/space-grotesk";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/600.css";
 import "./globals.css";
 import { Providers } from "./providers";
 
