@@ -54,15 +54,15 @@ interface PricePoint {
 // ─── Agent cosmetics ──────────────────────────────────────────────────────────
 
 const AGENT_META: Record<string, { emoji: string; color: string; label: string; desc: string }> = {
-  contrarian: { emoji: "🔄", color: "oklch(74% 0.18 55)",  label: "CONTRARIAN", desc: "Bets the underpriced side"    },
-  momentum:   { emoji: "📈", color: "oklch(65% 0.19 243)", label: "MOMENTUM",   desc: "Follows the dominant outcome" },
-  random:     { emoji: "🎲", color: "oklch(65% 0.20 295)", label: "RANDOM",     desc: "Coin flip on every market"   },
-  "yes-only": { emoji: "✅", color: "oklch(65% 0.16 155)", label: "YES-ONLY",   desc: "Always bets YES"             },
-  "no-only":  { emoji: "❌", color: "oklch(62% 0.20 25)",  label: "NO-ONLY",    desc: "Always bets NO"              },
+  contrarian: { emoji: "🤖", color: "oklch(74% 0.18 55)",  label: "WM-Alpha",   desc: "Automated trading agent" },
+  momentum:   { emoji: "🤖", color: "oklch(65% 0.19 243)", label: "WM-Beta",    desc: "Automated trading agent" },
+  random:     { emoji: "🤖", color: "oklch(65% 0.20 295)", label: "WM-Gamma",   desc: "Automated trading agent" },
+  "yes-only": { emoji: "🤖", color: "oklch(65% 0.16 155)", label: "WM-Delta",   desc: "Automated trading agent" },
+  "no-only":  { emoji: "🤖", color: "oklch(62% 0.20 25)",  label: "WM-Epsilon", desc: "Automated trading agent" },
 };
 
 function agentMeta(name: string) {
-  return AGENT_META[name] ?? { emoji: "🤖", color: "oklch(60% 0.01 250)", label: name.toUpperCase(), desc: "Unknown strategy" };
+  return AGENT_META[name] ?? { emoji: "🤖", color: "oklch(60% 0.01 250)", label: name.toUpperCase(), desc: "Automated trading agent" };
 }
 
 function usd(amount: string | number): string {
@@ -492,7 +492,7 @@ export default function AgentsPage() {
 
   const agentList = [...agents.values()].sort((a, b) => b.bets - a.bets);
 
-  const knownAgents = ["contrarian", "momentum", "random"];
+  const knownAgents: string[] = [];
   const allAgentRows = Array.from(new Set([...knownAgents, ...agentList.map((a) => a.name)]))
     .map((name) => ({ name, stats: agents.get(name), meta: agentMeta(name) }))
     .sort((a, b) => (b.stats?.bets ?? 0) - (a.stats?.bets ?? 0));
@@ -584,7 +584,7 @@ export default function AgentsPage() {
         <aside className="battle-side">
         <div className="battle-header">
           <div className="battle-header__left">
-            <h1 className="battle-title font-sans">Agent Battle</h1>
+            <h1 className="battle-title font-sans">Live Activity</h1>
             <span className="battle-status font-mono" data-status={streamStatus}>
               {streamStatus === "live" ? "● LIVE"
                 : streamStatus === "connecting" ? "○ CONNECTING"

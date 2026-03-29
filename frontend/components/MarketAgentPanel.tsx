@@ -4,11 +4,11 @@ import { isBetEvent } from "@/lib/types/events";
 
 // ─── Agent cosmetics (mirrors agents/page.tsx) ────────────────────────────────
 const AGENT_META: Record<string, { emoji: string; color: string; label: string }> = {
-  contrarian: { emoji: "🔄", color: "oklch(74% 0.18 55)",  label: "CONTRARIAN" },
-  momentum:   { emoji: "📈", color: "oklch(65% 0.19 243)", label: "MOMENTUM"   },
-  random:     { emoji: "🎲", color: "oklch(65% 0.20 295)", label: "RANDOM"     },
-  "yes-only": { emoji: "✅", color: "oklch(65% 0.16 155)", label: "YES-ONLY"   },
-  "no-only":  { emoji: "❌", color: "oklch(62% 0.20 25)",  label: "NO-ONLY"    },
+  contrarian: { emoji: "🤖", color: "oklch(74% 0.18 55)",  label: "WM-Alpha"   },
+  momentum:   { emoji: "🤖", color: "oklch(65% 0.19 243)", label: "WM-Beta"    },
+  random:     { emoji: "🤖", color: "oklch(65% 0.20 295)", label: "WM-Gamma"   },
+  "yes-only": { emoji: "🤖", color: "oklch(65% 0.16 155)", label: "WM-Delta"   },
+  "no-only":  { emoji: "🤖", color: "oklch(62% 0.20 25)",  label: "WM-Epsilon" },
 };
 
 function agentMeta(name: string) {
