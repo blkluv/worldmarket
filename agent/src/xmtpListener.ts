@@ -241,15 +241,16 @@ function startRelayServer() {
 
 // ─── XMTP listener ────────────────────────────────────────────────────────────
 
+export function startRelay() {
+  startRelayServer();
+}
+
 export async function startCommandListener() {
   const privateKey = process.env.XMTP_WALLET_KEY || process.env.AGENT_PRIVATE_KEY;
   if (!privateKey) {
-    console.warn("[xmtpListener] XMTP_WALLET_KEY not set — listener disabled");
+    console.warn("[xmtpListener] XMTP_WALLET_KEY not set — XMTP listener disabled");
     return;
   }
-
-  // Start relay immediately so the frontend can connect even before XMTP is ready
-  startRelayServer();
 
   try {
     const account = privateKeyToAccount(privateKey as `0x${string}`);
