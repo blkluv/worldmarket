@@ -7,7 +7,7 @@ const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ??
   "https://worldmarket-frontend-production.up.railway.app";
 
-// Demo wallet for testing
+// Demo wallet for testing — Hardhat's default account #0, safe for test/demo use only
 const demoAccount = "0x287A2bb05CFfd1093B9ea1816118fcCf81A142d7" as `0x${string}`;
 
 export const wagmiConfig = createConfig({
