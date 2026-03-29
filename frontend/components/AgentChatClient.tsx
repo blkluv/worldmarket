@@ -7,6 +7,6 @@ const AgentChat = dynamic(
   { ssr: false, loading: () => <p className="font-mono" style={{ padding: "2rem", opacity: 0.5 }}>Loading feed…</p> }
 );
 
-export function AgentChatClient({ groupId }: { groupId: string }) {
-  return <AgentChat groupId={groupId} />;
+export function AgentChatClient({ groupId, agentAddress }: { groupId: string; agentAddress?: string }) {
+  return <AgentChat groupId={groupId} agentAddress={agentAddress} />;
 }
