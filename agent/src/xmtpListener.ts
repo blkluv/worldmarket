@@ -8,7 +8,7 @@ import { walletAddress } from "./wallet.js";
 import { shouldBet } from "./strategy.js";
 
 const OWNER_ADDRESS = process.env.OWNER_ADDRESS?.toLowerCase();
-const RELAY_PORT = parseInt(process.env.XMTP_RELAY_PORT ?? "3002");
+const RELAY_PORT = parseInt(process.env.PORT ?? process.env.XMTP_RELAY_PORT ?? "3002");
 
 // Single XMTP client — shared with xmtpBroadcast to use only ONE installation slot.
 let sharedClient: Client | null = null;
@@ -241,15 +241,16 @@ function startRelayServer() {
 
 // ─── XMTP listener ────────────────────────────────────────────────────────────
 
+export function startRelay() {
+  startRelayServer();
+}
+
 export async function startCommandListener() {
   const privateKey = process.env.XMTP_WALLET_KEY || process.env.AGENT_PRIVATE_KEY;
   if (!privateKey) {
-    console.warn("[xmtpListener] XMTP_WALLET_KEY not set — listener disabled");
+    console.warn("[xmtpListener] XMTP_WALLET_KEY not set — XMTP listener disabled");
     return;
   }
-
-  // Start relay immediately so the frontend can connect even before XMTP is ready
-  startRelayServer();
 
   try {
     const account = privateKeyToAccount(privateKey as `0x${string}`);

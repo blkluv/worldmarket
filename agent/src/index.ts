@@ -4,7 +4,7 @@ import { walletAddress } from "./wallet.js";
 import { shouldBet, sizeBet, betDelay } from "./strategy.js";
 import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast.js";
 
-import { startCommandListener } from "./xmtpListener.js";
+import { startCommandListener, startRelay } from "./xmtpListener.js";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const RETRY_DELAY_MS = 2000;
@@ -118,6 +118,9 @@ export async function placeBet(marketId: number, outcome: boolean, amount: strin
 async function run(): Promise<void> {
   console.log(`[${ts()}] 🤖 Agent starting — wallet: ${walletAddress}`);
   console.log(`[${ts()}] 📡 API: ${API_URL}`);
+
+  // Always start the HTTP relay so the Railway healthcheck at /messages succeeds
+  startRelay();
 
   if (process.env.XMTP_ENABLED === "true") {
     startCommandListener().catch((err) => {
