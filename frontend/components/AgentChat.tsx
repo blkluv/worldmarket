@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import { useAccount } from "wagmi";
 
 // ─── Message payload shapes (mirrors xmtpBroadcast.ts) ───────────────────────
@@ -14,6 +15,7 @@ interface BetData {
   humanExposureAfter: string;
   humanCap: string;
   remainingCap: string;
+  text?: string;
 }
 
 interface CapHitData {
@@ -21,6 +23,7 @@ interface CapHitData {
   wallet: string;
   humanExposure: string;
   humanCap: string;
+  text?: string;
 }
 
 type AgentEnvelope =
@@ -220,47 +223,74 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
           <div className="agent-chat__error font-mono">{errorMsg}</div>
         )}
 
-        {entries.map((entry) => (
-          <div key={entry.id} className={`agent-chat__entry agent-chat__entry--${entry.envelope.type}`}>
-            <span className="agent-chat__time font-mono">
-              {new Date(entry.receivedAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}
-            </span>
+        {entries.map((entry) => {
+          const isAgent = entry.envelope.type === "bet" || entry.envelope.type === "cap_hit";
+          return (
+            <div key={entry.id} className={`agent-chat__entry agent-chat__entry--${entry.envelope.type}`}>
+              <span className="agent-chat__time font-mono" style={{ alignSelf: isAgent ? "flex-start" : "flex-end" }}>
+                {new Date(entry.receivedAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </span>
 
-            {entry.envelope.type === "bet" && (
-              <div className="agent-chat__body font-mono">
-                <span className="agent-chat__addr">{shortAddr(entry.envelope.data.wallet)}</span>
-                {" bet "}
-                <span className="agent-chat__amount">{usdAmount(entry.envelope.data.amount)}</span>
-                {" on "}
-                <span className={entry.envelope.data.outcome ? "agent-chat__yes" : "agent-chat__no"}>
-                  {entry.envelope.data.outcome ? "YES" : "NO"}
-                </span>
-                {" "}
-                <a className="agent-chat__tx" href={`https://sepolia.basescan.org/tx/${entry.envelope.data.txHash}`} target="_blank" rel="noopener noreferrer">
-                  {shortHash(entry.envelope.data.txHash)}↗
-                </a>
-              </div>
-            )}
+              {entry.envelope.type === "bet" && (
+                <div className="agent-chat__body font-mono">
+                  <Link href={`/trades?wallet=${entry.envelope.data.wallet}`} className="agent-chat__addr hover:underline" style={{ color: "var(--color-accent)", fontWeight: "600" }}>
+                    {shortAddr(entry.envelope.data.wallet)}
+                  </Link>
+                  {entry.envelope.data.text ? (
+                    <div className="agent-chat__text" style={{ width: "100%", marginTop: "4px", color: "var(--color-text)" }}>
+                      {entry.envelope.data.text.split('\n').map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {" bet "}
+                      <span className="agent-chat__amount">{usdAmount(entry.envelope.data.amount)}</span>
+                      {" on "}
+                      <span className={entry.envelope.data.outcome ? "agent-chat__yes" : "agent-chat__no"}>
+                        {entry.envelope.data.outcome ? "YES" : "NO"}
+                      </span>
+                      {" "}
+                      <a className="agent-chat__tx" href={`https://sepolia.basescan.org/tx/${entry.envelope.data.txHash}`} target="_blank" rel="noopener noreferrer">
+                        {shortHash(entry.envelope.data.txHash)}↗
+                      </a>
+                    </>
+                  )}
+                </div>
+              )}
 
-            {entry.envelope.type === "cap_hit" && (
-              <div className="agent-chat__body agent-chat__body--cap font-mono">
-                🛑 <span className="agent-chat__addr">{shortAddr(entry.envelope.data.wallet)}</span>
-                {" hit cap — "}
-                {usdAmount(entry.envelope.data.humanExposure)} / {usdAmount(entry.envelope.data.humanCap)}
-              </div>
-            )}
+              {entry.envelope.type === "cap_hit" && (
+                <div className="agent-chat__body agent-chat__body--cap font-mono">
+                  🛑 <Link href={`/trades?wallet=${entry.envelope.data.wallet}`} className="agent-chat__addr hover:underline" style={{ color: "var(--color-danger)", fontWeight: "600" }}>
+                    {shortAddr(entry.envelope.data.wallet)}
+                  </Link>
+                  {entry.envelope.data.text ? (
+                    <div className="agent-chat__text" style={{ width: "100%", marginTop: "4px", color: "var(--color-danger)" }}>
+                      {entry.envelope.data.text.split('\n').map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {" hit cap — "}
+                      {usdAmount(entry.envelope.data.humanExposure)} / {usdAmount(entry.envelope.data.humanCap)}
+                    </>
+                  )}
+                </div>
+              )}
 
-            {entry.envelope.type === "user_command" && (
-              <div className="agent-chat__body font-mono">
-                <span className="agent-chat__user-text">{entry.envelope.text}</span>
-              </div>
-            )}
-          </div>
-        ))}
+              {entry.envelope.type === "user_command" && (
+                <div className="agent-chat__body font-mono" style={{ justifyContent: "flex-end" }}>
+                  <span className="agent-chat__user-text">{entry.envelope.text}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <form className="agent-chat__footer" onSubmit={handleSendCommand}>

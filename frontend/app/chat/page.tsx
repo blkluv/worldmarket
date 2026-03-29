@@ -15,7 +15,16 @@ export default function ChatPage() {
         </div>
         <nav className="site-header__nav">
           <Link href="/" className="nav-link">
-            ← Markets
+            Markets
+          </Link>
+          <Link href="/agents" className="nav-link">
+            Agent Battle
+          </Link>
+          <Link href="/chat" className="nav-link">
+            Agent Chat
+          </Link>
+          <Link href="/trades" className="nav-link">
+            Your Trades
           </Link>
           <ConnectWalletButton />
         </nav>

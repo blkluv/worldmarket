@@ -4,7 +4,7 @@ import { walletAddress } from "./wallet.js";
 import { shouldBet, sizeBet, betDelay } from "./strategy.js";
 import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast.js";
 
-import { startCommandListener, startRelay } from "./xmtpListener.js";
+import { startCommandListener, startRelay, isAgentStopped } from "./xmtpListener.js";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const RETRY_DELAY_MS = 2000;
@@ -146,7 +146,14 @@ async function run(): Promise<void> {
 
   console.log(`[${ts()}] 📊 Evaluating all ${markets.length} market(s) per cycle (strategy: ${AGENT_NAME})`);
 
+  let lastBetMarketId: number | null = null;
+  let lastBetOutcome: boolean | null = null;
+
   while (true) {
+    if (isAgentStopped()) {
+      await delay(5000);
+      continue;
+    }
     // ── Pick the best market for this strategy via parallel price fetch ──────
     const priceResults = await Promise.allSettled(
       markets.map(async (m) => ({ market: m, price: await getPrice(m.id ?? 0) }))
@@ -189,6 +196,14 @@ async function run(): Promise<void> {
 
       const betAmount = sizeBet(decision.confidence, AGENT_NAME).toString();
       const outcomeName = decision.outcome ? "YES" : "NO";
+
+      // Prevent repetitive trades on the same market/outcome in a row
+      if (marketId === lastBetMarketId && decision.outcome === lastBetOutcome) {
+        console.log(`[${ts()}] ⏭  Skipping repetitive bet on market ${marketId} (${outcomeName})`);
+        await delay(betDelay(AGENT_NAME));
+        continue;
+      }
+
       console.log(
         `[${ts()}] 🎯 BET ${outcomeName} $${(Number(betAmount) / 1e6).toFixed(2)} on market ${marketId} (confidence: ${decision.confidence.toFixed(4)})`
       );
@@ -247,6 +262,8 @@ async function run(): Promise<void> {
 
       if (betResult!.data) {
         const d = betResult!.data;
+        lastBetMarketId = marketId;
+        lastBetOutcome = decision.outcome;
         console.log(`[${ts()}] ✅ Bet placed!`);
         console.log(`[${ts()}]    tx: ${d.txHash}`);
         console.log(`[${ts()}]    outcome: ${d.outcome ? "YES" : "NO"}, amount: ${d.amount}`);

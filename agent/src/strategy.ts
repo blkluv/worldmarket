@@ -96,13 +96,13 @@ export function betDelay(strategy: string): number {
     case "contrarian":
       return 6000 + Math.random() * 8000;
     case "momentum":
-      return 1500 + Math.random() * 3500;
+      return 10000 + Math.random() * 5000;
     case "random":
-      return 2000 + Math.random() * 16000;
+      return 10000 + Math.random() * 16000;
     case "yes-only":
     case "no-only":
-      return 4000 + Math.random() * 6000;
+      return 10000 + Math.random() * 6000;
     default:
-      return 5000;
+      return 10000;
   }
 }

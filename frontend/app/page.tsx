@@ -45,6 +45,9 @@ export default async function HomePage() {
           <Link href="/chat" className="nav-link">
             Agent Chat
           </Link>
+          <Link href="/trades" className="nav-link">
+            Your Trades
+          </Link>
           <ConnectWalletButton />
         </nav>
       </header>

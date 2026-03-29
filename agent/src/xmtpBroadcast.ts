@@ -1,7 +1,9 @@
 import "dotenv/config";
 import { getSharedClient, getMessageCache, type CachedMessage } from "./xmtpListener.js";
+import { walletAddress } from "./wallet.js";
 
 function addBroadcastToCache(content: string) {
+  // content is already JSON stringified envelope
   const cache = getMessageCache();
   const msg: CachedMessage = {
     id: `broadcast-${Date.now()}-${Math.random()}`,
@@ -66,7 +68,17 @@ export async function broadcastBet(data: {
 - Amount: $${amountUsdc}
 - Tx: ${data.txHash ? data.txHash.slice(0, 10) + "..." : "N/A"}
 - Exposure: $${(parseInt(data.humanExposureAfter) / 1_000_000).toFixed(2)} / $${(parseInt(data.humanCap) / 1_000_000).toFixed(2)}`;
-  await sendToConversation(msg);
+  
+  const envelope = {
+    type: "bet",
+    data: {
+      ...data,
+      wallet: walletAddress,
+      text: msg
+    },
+    timestamp: new Date().toISOString()
+  };
+  await sendToConversation(JSON.stringify(envelope));
 }
 
 export async function broadcastCapHit(data: {
@@ -80,5 +92,15 @@ export async function broadcastCapHit(data: {
 - Current: $${currentUsdc}
 - Limit: $${limitUsdc}
 - Action: Throttling trades until cap reset.`;
-  await sendToConversation(msg);
+  
+  const envelope = {
+    type: "cap_hit",
+    data: {
+      ...data,
+      wallet: walletAddress,
+      text: msg
+    },
+    timestamp: new Date().toISOString()
+  };
+  await sendToConversation(JSON.stringify(envelope));
 }

@@ -24,6 +24,12 @@ export interface CachedMessage {
 const messageCache: CachedMessage[] = [];
 const MAX_CACHED = 200;
 
+let agentStopped = false;
+
+export function isAgentStopped(): boolean {
+  return agentStopped;
+}
+
 export function getSharedClient(): Client | null {
   return sharedClient;
 }
@@ -123,6 +129,24 @@ export async function processCommand(text: string): Promise<string> {
 - XMTP: ${sharedClient ? `connected (${sharedClient.inboxId?.slice(0, 8)}...)` : "connecting..."}`;
   }
 
+  // ── Clear Cache ──────────────────────────────────────────────────────────────
+  if (lower === "clear" || lower === "reset chat") {
+    messageCache.length = 0;
+    return "🧹 Chat history cleared!";
+  }
+
+  // ── Stop / Start ─────────────────────────────────────────────────────────────
+  if (lower.includes("stop") || lower.includes("pause") || lower.includes("halt")) {
+    agentStopped = true;
+    console.log(`[xmtpListener] 🛑 STOP command received. agentStopped = ${agentStopped}`);
+    return "🛑 Agent STOPPED. I will not place any more automatic trades until you say 'start'.";
+  }
+  if (lower.includes("start") || lower.includes("resume") || lower.includes("go")) {
+    agentStopped = false;
+    console.log(`[xmtpListener] 🚀 START command received. agentStopped = ${agentStopped}`);
+    return "🚀 Agent STARTED. Resuming automatic trading loop.";
+  }
+
   // ── Markets list ─────────────────────────────────────────────────────────────
   if (lower === "markets" || lower.includes("what markets") || lower.includes("show markets") || lower.includes("list markets")) {
     try {
@@ -199,9 +223,26 @@ function startRelayServer() {
 
           // 3. Cache the agent response
           const agentMsgId = `agent-${Date.now()}`;
+          const envelope = {
+            type: "bet",
+            data: {
+              wallet: walletAddress,
+              text: response,
+              // These are dummy values to satisfy the parser and enable the link
+              marketId: 0,
+              outcome: true,
+              amount: "0",
+              txHash: "0x",
+              humanExposureAfter: "0",
+              humanCap: "0",
+              remainingCap: "0"
+            },
+            timestamp: new Date().toISOString()
+          };
+
           addToCache({
             id: agentMsgId,
-            content: response,
+            content: JSON.stringify(envelope),
             sentAt: new Date().toISOString(),
             senderInboxId: sharedClient?.inboxId ?? "agent",
             isFromAgent: true,
@@ -328,10 +369,26 @@ async function handleXmtpMessage(client: Client, message: any) {
   try {
     const conversation = await client.conversations.getConversationById(message.conversationId);
     if (conversation) {
-      await conversation.sendText(response);
+      const envelope = {
+        type: "bet",
+        data: {
+          wallet: walletAddress,
+          text: response,
+          marketId: 0,
+          outcome: true,
+          amount: "0",
+          txHash: "0x",
+          humanExposureAfter: "0",
+          humanCap: "0",
+          remainingCap: "0"
+        },
+        timestamp: new Date().toISOString()
+      };
+      const content = JSON.stringify(envelope);
+      await conversation.sendText(content);
       addToCache({
         id: `reply-${message.id}`,
-        content: response,
+        content: content,
         sentAt: new Date().toISOString(),
         senderInboxId: client.inboxId,
         isFromAgent: true,

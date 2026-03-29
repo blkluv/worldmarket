@@ -96,7 +96,16 @@ export default function RegisterPage() {
         </div>
         <nav className="site-header__nav" aria-label="Primary navigation">
           <Link href="/" className="nav-link">
-            ← Markets
+            Markets
+          </Link>
+          <Link href="/agents" className="nav-link">
+            Agent Battle
+          </Link>
+          <Link href="/chat" className="nav-link">
+            Agent Chat
+          </Link>
+          <Link href="/trades" className="nav-link">
+            Your Trades
           </Link>
         </nav>
       </header>

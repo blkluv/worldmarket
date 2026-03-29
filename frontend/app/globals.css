@@ -1050,6 +1050,7 @@ body {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-bottom-left-radius: 2px;
+  margin-right: auto;
 }
 
 .agent-chat__entry--user_command {
@@ -1057,6 +1058,7 @@ body {
   background: var(--color-accent);
   color: white;
   border-bottom-right-radius: 2px;
+  margin-left: auto;
 }
 
 .agent-chat__time {

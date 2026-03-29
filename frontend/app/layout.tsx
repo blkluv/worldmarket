@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/plus-jakarta-sans/index.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/600.css";
-import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/space-grotesk/index.css";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/600.css";
 import "./globals.css";

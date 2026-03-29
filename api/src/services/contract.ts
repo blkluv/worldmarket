@@ -25,7 +25,17 @@ export interface MarketData {
 }
 
 // --- DEMO MODE in-memory state ---
-const DEMO_CAP = BigInt("10000000000"); // $10,000 USDC per human
+const DEMO_CAP = BigInt("100000000000000000"); // $100,000 USDC per human (increased for demo)
+
+interface DemoBet {
+  id: string;
+  ts: number;
+  marketId: number;
+  outcome: boolean;
+  amount: bigint;
+  wallet: string;
+}
+const DEMO_BETS: DemoBet[] = [];
 
 const DEMO_MARKETS: MarketData[] = [
   {
@@ -184,6 +194,17 @@ export async function placeBet(
     const fakeTxHash = `0x${Buffer.from(
       `demo-${Date.now()}-${Math.random()}`
     ).toString("hex").slice(0, 62)}`;
+    
+    DEMO_BETS.push({
+      id: fakeTxHash,
+      ts: Date.now(),
+      marketId,
+      outcome,
+      amount,
+      wallet,
+    });
+    if (DEMO_BETS.length > 1000) DEMO_BETS.shift();
+
     return {
       hash: fakeTxHash,
       wait: async () => ({ hash: fakeTxHash }),
@@ -221,5 +242,12 @@ export async function getHumanExposure(
   }
   const contract = getMarketContract();
   return contract.humanExposure(marketId, human) as Promise<bigint>;
+}
+
+export function getDemoBets(wallet?: string): DemoBet[] {
+  if (wallet) {
+    return DEMO_BETS.filter((b) => b.wallet.toLowerCase() === wallet.toLowerCase());
+  }
+  return [...DEMO_BETS];
 }
 
