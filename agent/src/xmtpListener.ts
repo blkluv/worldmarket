@@ -8,7 +8,7 @@ import { walletAddress } from "./wallet.js";
 import { shouldBet } from "./strategy.js";
 
 const OWNER_ADDRESS = process.env.OWNER_ADDRESS?.toLowerCase();
-const RELAY_PORT = parseInt(process.env.XMTP_RELAY_PORT ?? "3002");
+const RELAY_PORT = parseInt(process.env.PORT ?? process.env.XMTP_RELAY_PORT ?? "3002");
 
 // Single XMTP client — shared with xmtpBroadcast to use only ONE installation slot.
 let sharedClient: Client | null = null;

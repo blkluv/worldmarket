@@ -3,7 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Worker — no HTTP port, just runs the trading loop
 startCommand = "node dist/index.js"
+healthcheckPath = "/messages"
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10

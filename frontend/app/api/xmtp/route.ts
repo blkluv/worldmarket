@@ -1,12 +1,13 @@
-// XMTP proxy — forwards requests to the agent's HTTP relay server (port 3002).
-// The agent handles all XMTP operations with its own Node SDK installation,
-// avoiding the Nix libiconv native binding issue in Next.js.
+// XMTP proxy — forwards requests to the agent's HTTP relay server.
+// Locally this is http://localhost:3002.
+// In production set XMTP_RELAY_URL to the agent's Railway public URL, e.g.
+//   https://worldmarket-agent-production.up.railway.app
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 
-const AGENT_RELAY_URL = process.env.XMTP_RELAY_URL ?? "http://localhost:3002";
+const UNREACHABLE_MSG = `Agent relay unreachable at ${AGENT_RELAY_URL}. Locally: run 'npm start' in agent/. In production: set XMTP_RELAY_URL env var in the frontend Railway service to point to the agent's public URL.`;
 
 // ─── GET: Fetch recent messages from agent relay ──────────────────────────────
 export async function GET(_req: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json(data);
   } catch (err: any) {
     const msg = err?.cause?.code === "ECONNREFUSED"
-      ? "Agent XMTP relay is not running. Start the agent with `npm start` in the agent/ directory."
+      ? UNREACHABLE_MSG
       : err.message;
     return NextResponse.json({ ok: false, error: msg }, { status: 503 });
   }
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (err: any) {
     const msg = err?.cause?.code === "ECONNREFUSED"
-      ? "Agent XMTP relay is not running. Start the agent with `npm start` in the agent/ directory."
+      ? UNREACHABLE_MSG
       : err.message;
     return NextResponse.json({ ok: false, error: msg }, { status: 503 });
   }
