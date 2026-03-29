@@ -1,15 +1,27 @@
 import "dotenv/config";
 import { agentFetch } from "./x402Client";
 import { walletAddress } from "./wallet";
-import { shouldBet } from "./strategy";
+import { shouldBet, sizeBet, betDelay } from "./strategy";
 import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast";
 
 import { startCommandListener } from "./xmtpListener";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
-const BET_AMOUNT = "1000000"; // $1 USDC (6 decimals)
-const LOOP_DELAY_MS = 5000;
 const RETRY_DELAY_MS = 2000;
+const BET_AMOUNT = "1000000"; // $1 base (actual size computed by sizeBet)
+
+/** Score a market for this strategy — higher = more attractive to trade. */
+function scoreMarket(price: { yes: number; no: number }, strategy: string): number {
+  const imbalance = Math.abs(price.yes - 0.5);
+  switch (strategy) {
+    case "contrarian": return imbalance;          // biggest mispricing → best value
+    case "momentum":   return imbalance;          // biggest trend to follow
+    case "random":     return Math.random();      // no preference
+    case "yes-only":   return 1 - price.yes;     // lowest YES price → most YES shares
+    case "no-only":    return 1 - price.no;      // lowest NO price → most NO shares
+    default:           return Math.random();
+  }
+}
 
 function ts(): string {
   return new Date().toISOString();
@@ -127,30 +139,57 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
-  let marketIdx = 0;
-  console.log(`[${ts()}] 📊 Trading ${markets.length} market(s) in rotation`);
+  console.log(`[${ts()}] 📊 Evaluating all ${markets.length} market(s) per cycle (strategy: ${AGENT_NAME})`);
 
   while (true) {
-    const market = markets[marketIdx % markets.length];
-    marketIdx++;
-    const marketId = market.id ?? 0;
+    // ── Pick the best market for this strategy via parallel price fetch ──────
+    const priceResults = await Promise.allSettled(
+      markets.map(async (m) => ({ market: m, price: await getPrice(m.id ?? 0) }))
+    );
+
+    let bestMarket: Market | null = null;
+    let bestPrice: { yes: number; no: number } = { yes: 0.5, no: 0.5 };
+    let bestScore = -Infinity;
+
+    for (const r of priceResults) {
+      if (r.status === "fulfilled") {
+        const score = scoreMarket(r.value.price, AGENT_NAME);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMarket = r.value.market;
+          bestPrice = r.value.price;
+        }
+      }
+    }
+
+    if (!bestMarket) {
+      await delay(betDelay(AGENT_NAME));
+      continue;
+    }
+
+    const marketId = bestMarket.id ?? 0;
+    const price = bestPrice;
+
     try {
-      // 1. Check price
-      const price = await getPrice(marketId);
-      console.log(`[${ts()}] 💰 Price — YES: ${price.yes.toFixed(4)}, NO: ${price.no.toFixed(4)}`);
+      console.log(
+        `[${ts()}] 💰 Market ${marketId} — YES: ${price.yes.toFixed(4)}, NO: ${price.no.toFixed(4)} (score: ${bestScore.toFixed(4)})`
+      );
 
       const decision = shouldBet(price);
       if (!decision.shouldBet) {
         console.log(`[${ts()}] ⏸  Market balanced — skipping bet`);
-        await delay(LOOP_DELAY_MS);
+        await delay(betDelay(AGENT_NAME));
         continue;
       }
 
+      const betAmount = sizeBet(decision.confidence, AGENT_NAME).toString();
       const outcomeName = decision.outcome ? "YES" : "NO";
-      console.log(`[${ts()}] 🎯 Strategy: BET ${outcomeName} (confidence: ${decision.confidence.toFixed(4)})`);
+      console.log(
+        `[${ts()}] 🎯 BET ${outcomeName} $${(Number(betAmount) / 1e6).toFixed(2)} on market ${marketId} (confidence: ${decision.confidence.toFixed(4)})`
+      );
 
-      // 2. Simulate
-      const sim = await simulate(marketId, decision.outcome);
+      // 2. Simulate with actual bet amount
+      const sim = await simulate(marketId, decision.outcome, betAmount);
       if (sim) {
         console.log(
           `[${ts()}] 🔮 Simulate: sharesOut=${sim.sharesOut}, priceImpact=${(sim.priceImpact * 100).toFixed(2)}%`
@@ -159,10 +198,8 @@ async function run(): Promise<void> {
 
       // 3. Place bet (with retry on "Payment already attempted")
       let betResult: BetResponse;
-      let attempts = 0;
       while (true) {
-        attempts++;
-        betResult = await placeBet(marketId, decision.outcome);
+        betResult = await placeBet(marketId, decision.outcome, betAmount);
 
         if (betResult.error === "Payment already attempted") {
           console.log(`[${ts()}] ⏳ Payment already attempted — retrying in ${RETRY_DELAY_MS}ms...`);
@@ -173,39 +210,39 @@ async function run(): Promise<void> {
       }
 
       // 4. Handle cap hit
-      if (betResult.error === "human cap exceeded") {
+      if (betResult!.error === "human cap exceeded") {
         console.log(`[${ts()}] 🛑 Human cap hit on market ${marketId} — skipping to next`);
         console.log(
-          `[${ts()}]    exposure: ${betResult.humanExposure}, cap: ${betResult.humanCap}`
+          `[${ts()}]    exposure: ${betResult!.humanExposure}, cap: ${betResult!.humanCap}`
         );
         if (process.env.XMTP_ENABLED === "true") {
           await broadcastCapHit({
             marketId,
             wallet: walletAddress,
-            humanExposure: betResult.humanExposure ?? "0",
-            humanCap: betResult.humanCap ?? "0",
+            humanExposure: betResult!.humanExposure ?? "0",
+            humanCap: betResult!.humanCap ?? "0",
           }).catch((err: unknown) => {
             console.error(`[${ts()}] ⚠️  XMTP broadcastCapHit failed:`, err);
           });
         }
-        await delay(LOOP_DELAY_MS);
+        await delay(betDelay(AGENT_NAME));
         continue;
       }
 
       // 5. Handle insufficient balance
-      if (betResult.error?.includes("insufficient")) {
+      if (betResult!.error?.includes("insufficient")) {
         console.error(`[${ts()}] ❌ Insufficient USDC balance — stopping`);
         process.exit(1);
       }
 
-      if (betResult.error) {
-        console.error(`[${ts()}] ❌ Bet failed: ${betResult.error}`);
-        await delay(LOOP_DELAY_MS);
+      if (betResult!.error) {
+        console.error(`[${ts()}] ❌ Bet failed: ${betResult!.error}`);
+        await delay(betDelay(AGENT_NAME));
         continue;
       }
 
-      if (betResult.data) {
-        const d = betResult.data;
+      if (betResult!.data) {
+        const d = betResult!.data;
         console.log(`[${ts()}] ✅ Bet placed!`);
         console.log(`[${ts()}]    tx: ${d.txHash}`);
         console.log(`[${ts()}]    outcome: ${d.outcome ? "YES" : "NO"}, amount: ${d.amount}`);
@@ -231,7 +268,7 @@ async function run(): Promise<void> {
       console.error(`[${ts()}] ❌ Error in trading loop:`, err);
     }
 
-    await delay(LOOP_DELAY_MS);
+    await delay(betDelay(AGENT_NAME));
   }
 }
 

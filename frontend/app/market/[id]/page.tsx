@@ -1,5 +1,5 @@
 import { CapMeter } from "@/components/CapMeter";
-import { AgentFeed } from "@/components/AgentFeed";
+import { MarketAgentPanel } from "@/components/MarketAgentPanel";
 import { PriceChart } from "@/components/PriceChart";
 import { BetForm } from "@/components/BetForm";
 import Link from "next/link";
@@ -181,14 +181,14 @@ export default async function MarketPage({
           <BetForm marketId={market.id} marketStatus={market.status} />
         </section>
 
-        {/* Live Agent Feed */}
-        <section aria-labelledby="feed-heading">
+        {/* Agent Activity Panel */}
+        <section aria-labelledby="agents-heading">
           <div className="section-header">
-            <h2 id="feed-heading" className="section-title">
-              Live agent activity
+            <h2 id="agents-heading" className="section-title">
+              Agent activity
             </h2>
           </div>
-          <AgentFeed apiUrl={API_URL} marketId={market.id} />
+          <MarketAgentPanel apiUrl={API_URL} marketId={market.id} />
         </section>
       </main>
     </div>

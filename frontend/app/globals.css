@@ -390,6 +390,147 @@ body {
 .agent-feed__tx    { color: var(--color-muted); text-decoration: none; border-bottom: 1px solid var(--color-border); }
 .agent-feed__tx:hover { color: var(--color-text); }
 
+/* ─── MarketAgentPanel ───────────────────────────────────────────────────── */
+.agent-panel {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.agent-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.agent-panel__title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.agent-panel__status { font-size: var(--text-xs); letter-spacing: 0.06em; }
+.agent-panel__status--live       { color: var(--color-accent); }
+.agent-panel__status--connecting { color: var(--color-muted); }
+.agent-panel__status--error      { color: var(--color-danger); }
+
+.agent-panel__section-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in oklch, var(--color-border) 30%, transparent);
+}
+
+.agent-panel__positions {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.agent-panel__tape {
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.agent-panel__empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Position rows */
+.agent-pos-row {
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.agent-pos-row__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agent-pos-row__emoji { font-size: 1rem; line-height: 1; }
+.agent-pos-row__name  { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; }
+.agent-pos-row__bets  { font-size: var(--text-xs); color: var(--color-muted); margin-left: auto; }
+
+.agent-pos-row__bar-wrap { display: flex; flex-direction: column; gap: 2px; }
+
+.agent-pos-row__bar-track {
+  height: 8px;
+  background: color-mix(in oklch, var(--color-border) 60%, transparent);
+  position: relative;
+}
+
+.agent-pos-row__bar {
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.agent-pos-row__bar-yes {
+  height: 100%;
+  background: var(--color-yes);
+  transition: width 300ms ease;
+}
+
+.agent-pos-row__bar-no {
+  height: 100%;
+  background: color-mix(in oklch, var(--color-danger, oklch(62% 0.20 25)) 80%, transparent);
+  transition: width 300ms ease;
+}
+
+.agent-pos-row__bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+}
+
+.agent-pos-row__yes-vol { color: var(--color-yes); }
+.agent-pos-row__no-vol  { color: var(--color-muted); }
+
+/* Tape rows */
+.agent-tape-row {
+  display: grid;
+  grid-template-columns: 68px 140px 36px 56px 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid color-mix(in oklch, var(--color-border) 40%, transparent);
+  font-size: var(--text-xs);
+  animation: feed-slide-in 200ms var(--ease-out-quint) both;
+}
+
+.agent-tape-row--new { background: color-mix(in oklch, var(--color-accent) 6%, transparent); }
+
+.agent-tape-row__time   { color: var(--color-muted); }
+.agent-tape-row__agent  { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-tape-row__outcome {
+  font-weight: 700;
+  text-align: center;
+}
+.agent-tape-row__outcome[data-outcome="yes"] { color: var(--color-yes); }
+.agent-tape-row__outcome[data-outcome="no"]  { color: var(--color-muted); }
+.agent-tape-row__amount { color: var(--color-accent); font-weight: 600; }
+.agent-tape-row__tx     {
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border);
+  justify-self: start;
+}
+.agent-tape-row__tx:hover { color: var(--color-text); }
+
 /* ─── CapMeter ───────────────────────────────────────────────────────────── */
 .cap-meter {
   border: 1px solid var(--color-border);
