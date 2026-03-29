@@ -9,4 +9,4 @@ healthcheckPath = "/"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-XMTP_RELAY_URL = https://https://worldmarket-frontend-production.up.railway.app/
+XMTP_RELAY_URL = "https://worldmarket-frontend-production.up.railway.app/"
