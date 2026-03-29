@@ -160,7 +160,7 @@ export function AgentChat({ groupId, agentAddress }: AgentChatProps) {
         setEntries((prev) => [...prev, {
           id: tempId,
           receivedAt: new Date().toISOString(),
-          envelope: { type: "user_command", text: command },
+          envelope: { type: "user_command" as const, text: command },
         }].slice(-100));
         setCommand("");
         // Poll immediately to pick up agent reply

@@ -220,7 +220,6 @@ async function run(): Promise<void> {
         if (process.env.XMTP_ENABLED === "true") {
           await broadcastCapHit({
             marketId,
-            wallet: walletAddress,
             humanExposure: betResult!.humanExposure ?? "0",
             humanCap: betResult!.humanCap ?? "0",
           }).catch((err: unknown) => {
@@ -256,7 +255,6 @@ async function run(): Promise<void> {
             marketId,
             outcome: d.outcome,
             amount: d.amount,
-            wallet: walletAddress,
             txHash: d.txHash,
             humanExposureAfter: d.humanExposureAfter,
             humanCap: d.humanCap,
