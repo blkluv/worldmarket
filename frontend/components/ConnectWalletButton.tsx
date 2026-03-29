@@ -26,9 +26,20 @@ export function ConnectWalletButton() {
 
   const injectedConnector = connectors.find((c) => c.id === "injected");
   const wcConnector = connectors.find((c) => c.id === "walletConnect");
+  const mockConnector = connectors.find((c) => c.id === "mock");
 
   return (
     <div className="wallet-connect-group" role="group" aria-label="Connect wallet">
+      {mockConnector && (
+        <button
+          className="wallet-btn wallet-btn--demo"
+          onClick={() => connect({ connector: mockConnector })}
+          disabled={isPending}
+          aria-label="Connect demo wallet"
+        >
+          {isPending ? "..." : "DEMO WALLET"}
+        </button>
+      )}
       {hasInjected && injectedConnector && (
         <button
           className="wallet-btn"

@@ -2,20 +2,22 @@
   "name": "worldmarket-agent",
   "version": "1.0.0",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "tsx src/index.ts",
     "build": "tsc"
   },
+  "type": "module",
   "dependencies": {
     "@x402/core": "2.8.0",
     "@x402/evm": "2.8.0",
     "@x402/fetch": "2.8.0",
-    "@xmtp/node-sdk": "^6.0.0",
+    "@xmtp/node-sdk": "^5.1.0",
     "dotenv": "^16.0.0",
     "viem": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "ts-node": "^10.9.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   }
 }

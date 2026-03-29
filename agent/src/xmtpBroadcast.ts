@@ -1,137 +1,84 @@
 import "dotenv/config";
-import { createWalletClient, http, toBytes } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { getSharedClient, getMessageCache, type CachedMessage } from "./xmtpListener.js";
 
-// @xmtp/node-sdk is ESM-only. Avoid static imports so this CommonJS
-// module can still compile. Types are inlined rather than imported.
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function loadXmtp(): Promise<any> {
-  // Dynamic import is allowed in CommonJS (Node16 target) even for ESM packages
-  return import("@xmtp/node-sdk" as string) as Promise<any>;
+function addBroadcastToCache(content: string) {
+  const cache = getMessageCache();
+  const msg: CachedMessage = {
+    id: `broadcast-${Date.now()}-${Math.random()}`,
+    content,
+    sentAt: new Date().toISOString(),
+    senderInboxId: "agent-broadcast",
+    isFromAgent: true,
+  };
+  cache.push(msg);
+  if (cache.length > 200) cache.shift();
 }
 
-// ─── Broadcast payload types ────────────────────────────────────────────────
+// Reuses the agent's XMTP client so we never create a second installation.
+// All broadcasts go to the conversation that sent the last command
+// (tracked via XMTP_GROUP_ID env var, set by xmtpListener).
 
-export interface BetBroadcastData {
-  marketId: number;
-  outcome: boolean;
-  amount: string;
-  wallet: string;
-  txHash: string;
-  humanExposureAfter: string;
-  humanCap: string;
-  remainingCap: string;
-}
-
-export interface CapHitBroadcastData {
-  marketId: number;
-  wallet: string;
-  humanExposure: string;
-  humanCap: string;
-}
-
-type XmtpEnvelope =
-  | { type: "bet"; data: BetBroadcastData; timestamp: string }
-  | { type: "cap_hit"; data: CapHitBroadcastData; timestamp: string };
-
-// ─── XMTP client state (opaque type to avoid static ESM import) ─────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let xmtpClient: any = null;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getClient(): Promise<any> {
-  if (xmtpClient) return xmtpClient;
-
-  const privateKey = process.env.AGENT_PRIVATE_KEY;
-  if (!privateKey) {
-    console.warn("[xmtpBroadcast] AGENT_PRIVATE_KEY not set — XMTP disabled");
-    return null;
+async function sendToConversation(text: string) {
+  const client = getSharedClient();
+  if (!client) {
+    console.warn("[xmtpBroadcast] Client not ready — skipping broadcast");
+    return;
   }
 
   const groupId = process.env.XMTP_GROUP_ID;
   if (!groupId) {
-    console.warn("[xmtpBroadcast] XMTP_GROUP_ID not set — XMTP disabled");
-    return null;
+    console.warn("[xmtpBroadcast] XMTP_GROUP_ID not set — broadcast disabled");
+    return;
   }
-
-  try {
-    const { Client: XmtpClient, IdentifierKind } = await loadXmtp();
-
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const walletClient = createWalletClient({
-      account,
-      transport: http(),
-      chain: baseSepolia,
-    });
-
-    const signer = {
-      type: "EOA" as const,
-      getIdentifier: () => ({
-        identifier: account.address,
-        identifierKind: IdentifierKind.Ethereum as number,
-      }),
-      signMessage: async (message: string) => {
-        const sig = await walletClient.signMessage({ message });
-        return toBytes(sig);
-      },
-    };
-
-    const xmtpEnv = process.env.XMTP_ENV ?? "dev";
-    xmtpClient = await XmtpClient.create(signer, {
-      env: xmtpEnv,
-      dbPath: `/tmp/xmtp-agent-${account.address}.db`,
-    });
-
-    console.log(
-      `[xmtpBroadcast] XMTP client ready — inboxId: ${xmtpClient.inboxId}`
-    );
-    return xmtpClient;
-  } catch (err) {
-    console.error("[xmtpBroadcast] Failed to initialize XMTP client:", err);
-    return null;
-  }
-}
-
-// ─── Internal send helper ───────────────────────────────────────────────
-
-async function send(envelope: XmtpEnvelope): Promise<void> {
-  const client = await getClient();
-  if (!client) return;
-
-  const groupId = process.env.XMTP_GROUP_ID;
-  if (!groupId) return;
 
   try {
     await client.conversations.sync();
-    const conversation = await client.conversations.getConversationById(groupId);
+    const all = await client.conversations.list();
+    const conversation = all.find((c: any) => c.id === groupId);
+
     if (!conversation) {
-      console.warn(
-        `[xmtpBroadcast] Group ${groupId} not found — skipping broadcast`
-      );
+      console.warn(`[xmtpBroadcast] Conversation ${groupId} not found — skipping broadcast`);
       return;
     }
-    await conversation.sendText(JSON.stringify(envelope));
+
+    await conversation.sendText(text);
   } catch (err) {
-    console.error("[xmtpBroadcast] Failed to broadcast message:", err);
+    console.error("[xmtpBroadcast] Failed to send broadcast:", err);
   }
+  // Always add to relay cache so frontend sees it even if XMTP send fails
+  addBroadcastToCache(text);
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
-
-/**
- * Broadcast a successful bet placement to the XMTP agent-chat group.
- * Called by Track E (agent/src/index.ts) after each confirmed bet.
- */
-export async function broadcastBet(data: BetBroadcastData): Promise<void> {
-  await send({ type: "bet", data, timestamp: new Date().toISOString() });
+export async function broadcastBet(data: {
+  marketId: number;
+  outcome: boolean;
+  amount: string;
+  txHash: string;
+  humanExposureAfter: string;
+  humanCap: string;
+  remainingCap: string;
+}) {
+  const outcomeText = data.outcome ? "YES" : "NO";
+  const amountUsdc = (parseInt(data.amount) / 1_000_000).toFixed(2);
+  const msg = `🎰 Agent placed a bet!
+- Market: ${data.marketId}
+- Outcome: ${outcomeText}
+- Amount: $${amountUsdc}
+- Tx: ${data.txHash ? data.txHash.slice(0, 10) + "..." : "N/A"}
+- Exposure: $${(parseInt(data.humanExposureAfter) / 1_000_000).toFixed(2)} / $${(parseInt(data.humanCap) / 1_000_000).toFixed(2)}`;
+  await sendToConversation(msg);
 }
 
-/**
- * Broadcast a human-cap-hit event to the XMTP agent-chat group.
- * Called by Track E (agent/src/index.ts) when the cap is exceeded.
- */
-export async function broadcastCapHit(data: CapHitBroadcastData): Promise<void> {
-  await send({ type: "cap_hit", data, timestamp: new Date().toISOString() });
+export async function broadcastCapHit(data: {
+  marketId: number;
+  humanExposure: string;
+  humanCap: string;
+}) {
+  const currentUsdc = (parseInt(data.humanExposure) / 1_000_000).toFixed(2);
+  const limitUsdc = (parseInt(data.humanCap) / 1_000_000).toFixed(2);
+  const msg = `⚠️ Human Exposure Cap Hit!
+- Current: $${currentUsdc}
+- Limit: $${limitUsdc}
+- Action: Throttling trades until cap reset.`;
+  await sendToConversation(msg);
 }

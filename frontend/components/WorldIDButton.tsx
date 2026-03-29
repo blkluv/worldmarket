@@ -18,6 +18,21 @@ export function WorldIDButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+  async function handleDemoVerify() {
+    onVerify({
+      protocol_version: "3.0",
+      responses: [
+        {
+          proof: "0x" + "0".repeat(512), // Dummy proof
+          merkle_root: "123456789",
+          nullifier: "987654321",
+        },
+      ],
+    } as IDKitResult);
+  }
+
   async function loadRpContext() {
     setLoading(true);
     setError(null);
@@ -56,6 +71,15 @@ export function WorldIDButton({
 
   return (
     <>
+      {isDemoMode && (
+        <button
+          className="wid-btn wid-btn--demo font-mono"
+          onClick={handleDemoVerify}
+          style={{ marginBottom: "var(--space-2)" }}
+        >
+          DEMO WORLD ID (SKIP SCAN)
+        </button>
+      )}
       <button
         className={`wid-btn ${rpContext ? "wid-btn--ready" : ""} font-mono`}
         onClick={rpContext ? () => setOpen(true) : loadRpContext}

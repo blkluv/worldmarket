@@ -30,7 +30,7 @@ function calcRemaining(deadline: number): string {
 }
 
 export function CountdownTimer({ deadline, className }: CountdownTimerProps) {
-  const [remaining, setRemaining] = useState(() => calcRemaining(deadline));
+  const [remaining, setRemaining] = useState<string | null>(null);
   const ended = remaining === "ENDED";
 
   useEffect(() => {
@@ -39,6 +39,10 @@ export function CountdownTimer({ deadline, className }: CountdownTimerProps) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [deadline]);
+
+  if (remaining === null) {
+    return <span className={`countdown-timer font-mono ${className ?? ""}`}>--:--:--</span>;
+  }
 
   return (
     <span

@@ -3,6 +3,7 @@ import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 import { AgentChatClient } from "@/components/AgentChatClient";
 
 const XMTP_GROUP_ID = process.env.NEXT_PUBLIC_XMTP_GROUP_ID ?? "";
+const AGENT_XMTP_ADDRESS = process.env.NEXT_PUBLIC_AGENT_XMTP_ADDRESS ?? "";
 
 export default function ChatPage() {
   return (
@@ -28,7 +29,7 @@ export default function ChatPage() {
           </p>
         </div>
 
-        <AgentChatClient groupId={XMTP_GROUP_ID} />
+        <AgentChatClient groupId={XMTP_GROUP_ID} agentAddress={AGENT_XMTP_ADDRESS} />
       </main>
     </div>
   );

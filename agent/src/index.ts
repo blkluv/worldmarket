@@ -1,10 +1,10 @@
 import "dotenv/config";
-import { agentFetch } from "./x402Client";
-import { walletAddress } from "./wallet";
-import { shouldBet, sizeBet, betDelay } from "./strategy";
-import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast";
+import { agentFetch } from "./x402Client.js";
+import { walletAddress } from "./wallet.js";
+import { shouldBet, sizeBet, betDelay } from "./strategy.js";
+import { broadcastBet, broadcastCapHit } from "./xmtpBroadcast.js";
 
-import { startCommandListener } from "./xmtpListener";
+import { startCommandListener } from "./xmtpListener.js";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const RETRY_DELAY_MS = 2000;
@@ -125,13 +125,15 @@ async function run(): Promise<void> {
     });
   }
 
-  // Discover markets
-  let markets: Market[];
-  try {
-    markets = await getMarkets();
-  } catch (err) {
-    console.error(`[${ts()}] ❌ Failed to fetch markets:`, err);
-    process.exit(1);
+  // Discover markets — retry until API is available
+  let markets: Market[] = [];
+  while (markets.length === 0) {
+    try {
+      markets = await getMarkets();
+    } catch (err) {
+      console.error(`[${ts()}] ❌ Failed to fetch markets (retrying in 5s):`, (err as any)?.cause?.code ?? err);
+      await delay(5000);
+    }
   }
 
   if (markets.length === 0) {
@@ -218,7 +220,6 @@ async function run(): Promise<void> {
         if (process.env.XMTP_ENABLED === "true") {
           await broadcastCapHit({
             marketId,
-            wallet: walletAddress,
             humanExposure: betResult!.humanExposure ?? "0",
             humanCap: betResult!.humanCap ?? "0",
           }).catch((err: unknown) => {
@@ -254,7 +255,6 @@ async function run(): Promise<void> {
             marketId,
             outcome: d.outcome,
             amount: d.amount,
-            wallet: walletAddress,
             txHash: d.txHash,
             humanExposureAfter: d.humanExposureAfter,
             humanCap: d.humanCap,
