@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 
+const AGENT_RELAY_URL =
+  process.env.XMTP_RELAY_URL ?? "http://localhost:3002";
+
 const UNREACHABLE_MSG = `Agent relay unreachable at ${AGENT_RELAY_URL}. Locally: run 'npm start' in agent/. In production: set XMTP_RELAY_URL env var in the frontend Railway service to point to the agent's public URL.`;
 
 // ─── GET: Fetch recent messages from agent relay ──────────────────────────────
